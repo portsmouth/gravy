@@ -1,0 +1,45 @@
+
+body{
+  margin: 0px;
+  overflow: hidden;
+}
+
+/* make the canvases children of this container */
+#container {
+    position: relative;
+    margin: 0px;
+    padding: 0px;
+}
+
+#webglContainer {
+    position: absolute;
+    margin: 0px;
+    padding: 0px;
+    overflow: hidden;
+    pointer-events: none;   /* this element will not catch any events */
+    z-index: 1;    /* position this canvas at bottom of the other one */
+}
+
+#threeContainer {
+    position: absolute;
+    margin: 0px;
+    padding: 0px;
+    overflow: hidden;
+    z-index: 2;      /* position this canvas on top of the web gl one */
+}
+
+#textContainer {
+    position: absolute;
+    margin: 0px;
+    overflow: hidden;
+    left: 0px;
+    top: 0px;
+    pointer-events: none;   /* this element will not catch any events */
+    z-index: 3;
+}
+
+#gui { 
+    position: absolute; 
+    z-index: 100;
+    right: 0px;
+}
