@@ -5,14 +5,15 @@ uniform sampler2D DirData;
 uniform sampler2D RngData;
 uniform sampler2D RgbData;
 
-uniform float SceneScale;
+uniform float lengthScale;
+uniform float stepDistance;
 
 layout(location = 0) out vec4 gbuf_pos;
 layout(location = 1) out vec4 gbuf_dir;
 layout(location = 2) out vec4 gbuf_rnd;
 layout(location = 3) out vec4 gbuf_rgb;
 
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
 
 
 //////////////////////////////////////////////////////////////
@@ -26,18 +27,30 @@ POTENTIAL_FUNC
 // Raytracing in a weak gravitational field
 //////////////////////////////////////////////////////////////
 
+vec3 potential_gradient(in vec3 X)
+{
+    // Compute normal as gradient of SDF
+    float epsilon = 1.0e-4*lengthScale;
+    vec3 e = vec3(epsilon, 0.0, 0.0);
+    vec3 xyyp = X+e.xyy; vec3 xyyn = X-e.xyy;
+    vec3 yxyp = X+e.yxy; vec3 yxyn = X-e.yxy;
+    vec3 yyxp = X+e.yyx; vec3 yyxn = X-e.yyx;
+  	return vec3(POTENTIAL(xyyp) - POTENTIAL(xyyn), 
+  		        POTENTIAL(yxyp) - POTENTIAL(yxyn), 
+  		        POTENTIAL(yyxp) - POTENTIAL(yyxn)) / epsilon;
+}
+
+
 // propagate each photon beam further along its geodesic by some step distance
 
 void propagate(inout vec3 X, inout vec3 D)
 {
 	// deflect direction according to lens equation, given current X and D
-	float phi = POTENTIAL(X);
-	
-	vec3 Dprime = D; // @todo: use potential
-	float marchStep = 1.0e-5*SceneScale;
-
-    X += marchStep*D;
-    D = Dprime;
+	//vec3 grad = potential_gradient(X);
+	//vec3 grad_project = grad - D*dot(grad, D);
+	//D += -2.0*stepDistance*grad_project;
+	//D = normalize(D);
+    X += 0.01*D; //stepDistance*D;
 }
 
 

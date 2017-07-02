@@ -6,9 +6,8 @@ uniform sampler2D RgbData;
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_modelViewMatrix;
 
-attribute vec3 TexCoord;
-
-varying vec3 vColor;
+in vec3 TexCoord;
+out vec3 vColor;
 
 void main()
 {

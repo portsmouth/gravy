@@ -1,7 +1,6 @@
 precision highp float;
 
-varying vec3 vColor;
-
+in vec3 vColor;
 out vec4 outputColor;
 
 void main() 

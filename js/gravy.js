@@ -73,7 +73,7 @@ var Gravy = function(potentialObj)
 }
 
 /**
-* Returns the current version number of the snelly system, in the format [1, 2, 3] (i.e. major, minor, patch version)
+* Returns the current version number of the Gravy system, in the format [1, 2, 3] (i.e. major, minor, patch version)
 *  @returns {Array}
 */
 Gravy.prototype.getVersion = function()
@@ -104,6 +104,13 @@ Gravy.prototype.getRaytracer = function()
 	return this.raytracer;
 }
 
+
+Gravy.prototype.getPotential = function()
+{
+	return this.potentialObj;
+}
+
+
 /**
 * Access to the GUI object
 *  @returns {GUI} 
@@ -131,6 +138,15 @@ Gravy.prototype.getControls = function()
 	return this.camControls;
 }
 
+/** 
+ * @returns {WebGLRenderingContext} The webGL context
+ */
+Gravy.prototype.getGLContext = function()
+{
+	return GLU.gl;
+}
+
+
 /**
 * Programmatically show or hide the dat.GUI UI
 * @param {Boolean} show - toggle
@@ -140,18 +156,6 @@ Gravy.prototype.showGUI = function(show)
 	this.guiVisible = show;
 }
 
-Gravy.prototype.getPotential = function()
-{
-	return this.potentialObj;
-}
-
-/** 
- * @returns {WebGLRenderingContext} The webGL context
- */
-Gravy.prototype.getGLContext = function()
-{
-	return GLU.gl;
-}
 
 
 Gravy.prototype.initPotential = function()
@@ -171,7 +175,7 @@ Gravy.prototype.initPotential = function()
 	this.camControls.target.set(0.0, 0.0, 0.0);
 
 	// Call user-defined init function	
-	if (typeof this.potentialObj.init == "undefined") this.potentialObj.init(this);
+	if (typeof this.potentialObj.init != "undefined") this.potentialObj.init(this);
 
 	// Read optional scene name and URL, if provided
 	this.sceneName = '';
@@ -213,6 +217,11 @@ Gravy.prototype.reset = function(no_recompile = false)
 // Render all 
 Gravy.prototype.render = function()
 {
+	var gl = GLU.gl;
+	gl.viewport(0, 0, this.width, this.height);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.enable(gl.DEPTH_TEST);
+
 	if (!this.initialized || this.terminated) return;
 	if (this.potentialObj == null) return;
 	this.rendering = true;
@@ -251,6 +260,7 @@ Gravy.prototype.render = function()
 		}
 	}
 
+	gl.finish();
 	this.rendering = false;
 }
 
@@ -330,7 +340,7 @@ Gravy.prototype.onClick = function(event)
 
 Gravy.prototype.onDocumentMouseMove = function(event)
 {
-	// Check whether user is trying to click the Snelly home link, or user link
+	// Check whether user is trying to click the Gravy home link, or user link
 	var textCtx = this.textCtx;
 	var x = event.pageX;
     var y = event.pageY;

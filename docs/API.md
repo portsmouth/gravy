@@ -28,8 +28,8 @@ for convenience.</p>
     * [.getGUI()](#Gravy+getGUI) ⇒ <code>GUI</code>
     * [.getCamera()](#Gravy+getCamera) ⇒ <code>THREE.PerspectiveCamera</code>
     * [.getControls()](#Gravy+getControls) ⇒ <code>THREE.OrbitControls</code>
-    * [.showGUI(show)](#Gravy+showGUI)
     * [.getGLContext()](#Gravy+getGLContext) ⇒ <code>WebGLRenderingContext</code>
+    * [.showGUI(show)](#Gravy+showGUI)
 
 <a name="new_Gravy_new"></a>
 
@@ -44,7 +44,7 @@ Gravy is the global object providing access to all functionality in the system.
 <a name="Gravy+getVersion"></a>
 
 ### gravy.getVersion() ⇒ <code>Array</code>
-Returns the current version number of the snelly system, in the format [1, 2, 3] (i.e. major, minor, patch version)
+Returns the current version number of the Gravy system, in the format [1, 2, 3] (i.e. major, minor, patch version)
 
 **Kind**: instance method of [<code>Gravy</code>](#Gravy)  
 <a name="Gravy+getRaytracer"></a>
@@ -72,6 +72,11 @@ Access to the camera object
 Access to the camera controller object
 
 **Kind**: instance method of [<code>Gravy</code>](#Gravy)  
+<a name="Gravy+getGLContext"></a>
+
+### gravy.getGLContext() ⇒ <code>WebGLRenderingContext</code>
+**Kind**: instance method of [<code>Gravy</code>](#Gravy)  
+**Returns**: <code>WebGLRenderingContext</code> - The webGL context  
 <a name="Gravy+showGUI"></a>
 
 ### gravy.showGUI(show)
@@ -83,11 +88,6 @@ Programmatically show or hide the dat.GUI UI
 | --- | --- | --- |
 | show | <code>Boolean</code> | toggle |
 
-<a name="Gravy+getGLContext"></a>
-
-### gravy.getGLContext() ⇒ <code>WebGLRenderingContext</code>
-**Kind**: instance method of [<code>Gravy</code>](#Gravy)  
-**Returns**: <code>WebGLRenderingContext</code> - The webGL context  
 <a name="GLU"></a>
 
 ## GLU : <code>object</code>

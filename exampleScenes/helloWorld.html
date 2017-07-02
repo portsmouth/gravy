@@ -22,13 +22,18 @@
 function Potential() {}
 Potential.prototype.init = function(gravy)
 {
-    this.par = {};
+    // Mass distribution parameters
+    this.mass = {};
+    this.mass.separation = 1.0;
+    this.mass.m1 = 1.0; // units?
+    this.mass.m2 = 0.5; // units?
 
-    this.par.p1 = [1, 0, 0];
-    this.par.m1 = 1.0; // units?
-
-    this.par.p2 = [-1, 0, 0];
-    this.par.m2 = 0.5; // units?
+    let camera   = gravy.getCamera();
+    let controls = gravy.getControls();
+    camera.fov = 45;
+    camera.up.set(0, 1, 0);
+    camera.position.set(10.0, 5.0, 5.0);
+    controls.target.set(10.0, 0.0, 0.0);
 }
 
 Potential.prototype.getScale = function()
@@ -38,10 +43,14 @@ Potential.prototype.getScale = function()
 
 Potential.prototype.program = function()
 {
+    /**
+    * Potential is in units of c^2, and the masses and distances defined in units of
+      the Schwarschild radius of some relevant mass scale (e.g. the total mass of the system).
+    */
+
     return `
     uniform vec3 p1;
     uniform vec3 p2;
-
     uniform float m1;
     uniform float m2;
 
@@ -49,17 +58,17 @@ Potential.prototype.program = function()
     {
         float d1 = length(X - p1);
         float d2 = length(X - p2);
-        return -(m1/p1 + m2/p2);   // units?
+        return -(m1/d1 + m2/d2);   // units?
     }`;
 }
 
 Potential.prototype.syncProgram = function(gravy, program) 
 { 
-    program.uniform3Fv("p1", this.par.p1);
-    program.uniform3Fv("p2", this.par.p2);
-
-    program.uniformF("m1", this.par.m1); 
-    program.uniformF("m2", this.par.m2); 
+    let d = this.mass.separation;
+    program.uniform3Fv("p1", [ d, 0, 0]);
+    program.uniform3Fv("p2", [-d, 0, 0]);
+    program.uniformF("m1", this.mass.m1); 
+    program.uniformF("m2", this.mass.m2); 
 }
 
 Potential.prototype.getName = function() { return 'A simple two point mass system'; }
@@ -67,8 +76,9 @@ Potential.prototype.getURL = function() { return "https://github.com/portsmouth/
 
 Potential.prototype.initGui = function(gui) 
 { 
-    gui.addSlider(this.par, {name: 'm1', min: 0.0, max: 1.0});
-    gui.addSlider(this.par, {name: 'm2', min: 0.0, max: 1.0}); 
+    gui.addSlider(this.mass, {name: 'm1', min: 0.0, max: 1.0});
+    gui.addSlider(this.mass, {name: 'm2', min: 0.0, max: 1.0}); 
+    gui.addSlider(this.mass, {name: 'separation', min: 0.0, max: 1.0}); 
 }
 
 </script>

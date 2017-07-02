@@ -1,8 +1,8 @@
 precision highp float;
 
 uniform sampler2D WaveBuffer;
-varying vec2 vTexCoord;
 
+in vec2 vTexCoord;
 out vec4 outputColor;
 
 void main() 

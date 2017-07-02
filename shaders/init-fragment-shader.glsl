@@ -11,7 +11,7 @@ layout(location = 1) out vec4 gbuf_dir;
 layout(location = 2) out vec4 gbuf_rnd;
 layout(location = 3) out vec4 gbuf_rgb;
 
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
 
 #define M_PI 3.1415926535897932384626433832795
 
@@ -57,5 +57,5 @@ void main()
 	gbuf_pos = vec4(pos, 1.0);
 	gbuf_dir = vec4(dir, 1.0);
 	gbuf_rnd = seed;
-	gbuf_rgb = vec4(rgb, w);
+	gbuf_rgb = vec4(1.0, 0.0, 0.0, 1.0);
 }

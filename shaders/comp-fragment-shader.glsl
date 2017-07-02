@@ -5,14 +5,13 @@ uniform float invNumPaths;
 uniform float exposure;
 uniform float invGamma;
 
-varying vec2 vTexCoord;
-
+in vec2 vTexCoord;
 out vec4 outputColor;
 
 void main() 
 {
 	vec3 fluence = texture(Fluence, vTexCoord).rgb;
-	vec3 phi = invNumPaths * fluence; // normalized fluence
+	vec3 phi = float(invNumPaths) * fluence; // normalized fluence
 
 	// Apply exposure 
 	float gain = pow(2.0, exposure);

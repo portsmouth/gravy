@@ -8,14 +8,13 @@ uniform float invNumPaths;
 uniform float exposure;
 uniform float invGamma;
 
-varying vec2 vTexCoord;
-
+in vec2 vTexCoord;
 out vec4 outputColor;
 
 void main() 
 {
 	vec3 fluence = texture(Fluence, vTexCoord).rgb;
-	vec3 phi = invNumPaths * fluence; // normalized fluence
+	vec3 phi = float(invNumPaths) * fluence; // normalized fluence
 
 	// Apply exposure 
 	float gain = pow(2.0, exposure);
@@ -36,10 +35,9 @@ void main()
 'comp-vertex-shader': `#version 300 es
 precision highp float;
 
-attribute vec3 Position;
-attribute vec2 TexCoord;
-
-varying vec2 vTexCoord;
+in vec3 Position;
+in vec2 TexCoord;
+out vec2 vTexCoord;
 
 void main(void)
 {
@@ -62,7 +60,7 @@ layout(location = 1) out vec4 gbuf_dir;
 layout(location = 2) out vec4 gbuf_rnd;
 layout(location = 3) out vec4 gbuf_rgb;
 
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
 
 #define M_PI 3.1415926535897932384626433832795
 
@@ -108,17 +106,16 @@ void main()
 	gbuf_pos = vec4(pos, 1.0);
 	gbuf_dir = vec4(dir, 1.0);
 	gbuf_rnd = seed;
-	gbuf_rgb = vec4(rgb, w);
+	gbuf_rgb = vec4(1.0, 0.0, 0.0, 1.0);
 }
 `,
 
 'init-vertex-shader': `#version 300 es
 precision highp float;
 
-attribute vec3 Position;
-attribute vec2 TexCoord;
-
-varying vec2 vTexCoord;
+in vec3 Position;
+in vec2 TexCoord;
+out vec2 vTexCoord;
 
 void main() 
 {
@@ -130,8 +127,7 @@ void main()
 'line-fragment-shader': `#version 300 es
 precision highp float;
 
-varying vec3 vColor;
-
+in vec3 vColor;
 out vec4 outputColor;
 
 void main() 
@@ -149,9 +145,8 @@ uniform sampler2D RgbData;
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_modelViewMatrix;
 
-attribute vec3 TexCoord;
-
-varying vec3 vColor;
+in vec3 TexCoord;
+out vec3 vColor;
 
 void main()
 {
@@ -172,8 +167,8 @@ void main()
 precision highp float;
 
 uniform sampler2D WaveBuffer;
-varying vec2 vTexCoord;
 
+in vec2 vTexCoord;
 out vec4 outputColor;
 
 void main() 
@@ -185,9 +180,9 @@ void main()
 'pass-vertex-shader': `#version 300 es
 precision highp float;
 
-attribute vec3 Position;
-attribute vec2 TexCoord;
-varying vec2 vTexCoord;
+in vec3 Position;
+in vec2 TexCoord;
+out vec2 vTexCoord;
 
 void main(void)
 {
@@ -223,9 +218,9 @@ void main()
 'tonemapper-vertex-shader': `#version 300 es
 precision highp float;
 
-attribute vec3 Position;
-attribute vec2 TexCoord;
-varying vec2 vTexCoord;
+in vec3 Position;
+in vec2 TexCoord;
+out vec2 vTexCoord;
 
 void main() 
 {
@@ -242,14 +237,15 @@ uniform sampler2D DirData;
 uniform sampler2D RngData;
 uniform sampler2D RgbData;
 
-uniform float SceneScale;
+uniform float lengthScale;
+uniform float stepDistance;
 
 layout(location = 0) out vec4 gbuf_pos;
 layout(location = 1) out vec4 gbuf_dir;
 layout(location = 2) out vec4 gbuf_rnd;
 layout(location = 3) out vec4 gbuf_rgb;
 
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
 
 
 //////////////////////////////////////////////////////////////
@@ -263,18 +259,30 @@ POTENTIAL_FUNC
 // Raytracing in a weak gravitational field
 //////////////////////////////////////////////////////////////
 
+vec3 potential_gradient(in vec3 X)
+{
+    // Compute normal as gradient of SDF
+    float epsilon = 1.0e-4*lengthScale;
+    vec3 e = vec3(epsilon, 0.0, 0.0);
+    vec3 xyyp = X+e.xyy; vec3 xyyn = X-e.xyy;
+    vec3 yxyp = X+e.yxy; vec3 yxyn = X-e.yxy;
+    vec3 yyxp = X+e.yyx; vec3 yyxn = X-e.yyx;
+  	return vec3(POTENTIAL(xyyp) - POTENTIAL(xyyn), 
+  		        POTENTIAL(yxyp) - POTENTIAL(yxyn), 
+  		        POTENTIAL(yyxp) - POTENTIAL(yyxn)) / epsilon;
+}
+
+
 // propagate each photon beam further along its geodesic by some step distance
 
 void propagate(inout vec3 X, inout vec3 D)
 {
 	// deflect direction according to lens equation, given current X and D
-	float phi = POTENTIAL(X);
-	
-	vec3 Dprime = D; // @todo: use potential
-	float marchStep = 1.0e-5*SceneScale;
-
-    X += marchStep*D;
-    D = Dprime;
+	//vec3 grad = potential_gradient(X);
+	//vec3 grad_project = grad - D*dot(grad, D);
+	//D += -2.0*stepDistance*grad_project;
+	//D = normalize(D);
+    X += 0.01*D; //stepDistance*D;
 }
 
 
@@ -297,10 +305,10 @@ void main()
 'trace-vertex-shader': `#version 300 es
 precision highp float;
 
-attribute vec3 Position;
-attribute vec2 TexCoord;
+in vec3 Position;
+in vec2 TexCoord;
 
-varying vec2 vTexCoord;
+out vec2 vTexCoord;
 
 void main() 
 {
