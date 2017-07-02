@@ -1,8 +1,14 @@
+# Gravy
 
-# Grav
+A webGL visualization of gravitationally lensed light paths in three dimensions.
 
-Prototype test particle dynamics renderer in webGL.
-Applications:
+# API Reference
 
-	- gravitational lensing visualization (render photon paths and time delay)
-	- gravitational wave visualization (render test particle paths under passage of a grav. wave)
+<dl>
+<dt><a href="docs/API.md/#Gravy">Gravy</a></dt>
+<dd></dd>
+<dt><a href="docs/API.md/#Potential">Potential</a></dt>
+<dd></dd>
+<dt><a href="docs/API.md/#Renderer">Renderer</a></dt>
+<dd></dd>
+</dl>

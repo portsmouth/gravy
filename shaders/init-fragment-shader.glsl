@@ -1,26 +1,40 @@
+precision highp float;
 
 uniform sampler2D RngData;
-uniform sampler2D WavelengthToRgb;
-uniform sampler2D ICDF;
-
 uniform vec3 EmitterPos;
 uniform vec3 EmitterDir;
 uniform float EmitterRadius;
 uniform float EmitterSpread; // in degrees
 
+layout(location = 0) out vec4 gbuf_pos;
+layout(location = 1) out vec4 gbuf_dir;
+layout(location = 2) out vec4 gbuf_rnd;
+layout(location = 3) out vec4 gbuf_rgb;
+
 varying vec2 vTexCoord;
+
+#define M_PI 3.1415926535897932384626433832795
+
+/// GLSL floating point pseudorandom number generator, from
+/// "Implementing a Photorealistic Rendering System using GLSL", Toshiya Hachisuka
+/// http://arxiv.org/pdf/1505.06022.pdf
+float rand(inout vec4 rnd) 
+{
+    const vec4 q = vec4(   1225.0,    1585.0,    2457.0,    2098.0);
+    const vec4 r = vec4(   1112.0,     367.0,      92.0,     265.0);
+    const vec4 a = vec4(   3423.0,    2646.0,    1707.0,    1999.0);
+    const vec4 m = vec4(4194287.0, 4194277.0, 4194191.0, 4194167.0);
+    vec4 beta = floor(rnd/q);
+    vec4 p = a*(rnd - beta*q) - beta*r;
+    beta = (1.0 - sign(p))*0.5*m;
+    rnd = p + beta;
+    return fract(dot(rnd/m, vec4(1.0, -1.0, 1.0, -1.0)));
+}
 
 void main()
 {
-	vec4 seed = texture2D(RngData, vTexCoord);
+	vec4 seed = texture(RngData, vTexCoord);
 
-	// Sample photon wavelength via the inverse CDF of the emission spectrum
-	// (here w is spectral offset, i.e. wavelength = 360.0 + (750.0 - 360.0)*w)
-	// (linear interpolation into the inverse CDF texture and RGB table should ensure smooth sampling over the range)
-    float w = texture2D(ICDF, vec2(rand(seed), 0.5)).r;
-  	vec3 rgb = texture2D(WavelengthToRgb, vec2(w, 0.5)).rgb;
-
-	// Make emission cross-section circular
 	float rPos   = EmitterRadius*sqrt(rand(seed));
 	float phiPos = 2.0*M_PI*rand(seed);
 	vec3 X = vec3(1.0, 0.0, 0.0);
@@ -40,8 +54,8 @@ void main()
 	float phiDir = 2.0*M_PI*rand(seed);
 	vec3 dir = normalize(EmitterDir + rDir*(u*cos(phiDir) + v*sin(phiDir)));
 	
-	gl_FragData[0] = vec4(pos, 1.0);
-	gl_FragData[1] = vec4(dir, 1.0);
-	gl_FragData[2] = seed;
-	gl_FragData[3] = vec4(rgb, w);
+	gbuf_pos = vec4(pos, 1.0);
+	gbuf_dir = vec4(dir, 1.0);
+	gbuf_rnd = seed;
+	gbuf_rgb = vec4(rgb, w);
 }

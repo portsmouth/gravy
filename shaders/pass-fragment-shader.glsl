@@ -1,8 +1,11 @@
+precision highp float;
 
 uniform sampler2D WaveBuffer;
 varying vec2 vTexCoord;
 
+out vec4 outputColor;
+
 void main() 
 {
-	gl_FragColor = vec4(texture2D(WaveBuffer, vTexCoord).rgba);
+	outputColor = vec4(texture(WaveBuffer, vTexCoord).rgba);
 }

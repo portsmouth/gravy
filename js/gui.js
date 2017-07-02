@@ -1,22 +1,24 @@
 
-
-var GUI = function() 
+/** @constructor 
+* Interface to the dat.GUI UI.
+*/
+var GUI = function(visible = true) 
 {
 	// Create dat gui
 	this.gui = new dat.GUI();
 	this.gui.domElement.id = 'gui';
 	var gui = this.gui;
-
-	this.visible = true;
+	this.visible = visible;
 	
 	this.createSceneSettings();
 	this.createMaterialSettings();
-	this.createEmissionSettings();
-	this.createLightTracerSettings();
-	this.createSurfaceRendererSettings();
+	this.createRendererSettings();
+	if (!visible)
+		this.gui.__proto__.constructor.toggleHide();
 }
 
-function updateDisplay(gui) {
+function updateDisplay(gui) 
+{
     for (var i in gui.__controllers) {
         gui.__controllers[i].updateDisplay();
     }
@@ -25,47 +27,22 @@ function updateDisplay(gui) {
     }
 }
 
+/**
+* Call to explicitly force the GUI to synchronize with the
+* current parameter values, if they have been changed programmatically.
+*/
 GUI.prototype.sync = function()
 {
-	var laser = snelly.getLaser();
-	this.emissionSettings.eulerAngles.x = laser.eulerAngles.x * 180.0/Math.PI;
-	this.emissionSettings.eulerAngles.y = laser.eulerAngles.y * 180.0/Math.PI;
-	this.emissionSettings.eulerAngles.z = laser.eulerAngles.z * 180.0/Math.PI;
-	this.emissionSettings.emissionRadius = laser.getEmissionRadius();
-	this.emissionSettings.emissionSpread = laser.getEmissionSpreadAngle();
-
 	updateDisplay(this.gui);
 }
 
-GUI.prototype.createLightTracerSettings = function()
+GUI.prototype.toggleHide = function()
 {
-	this.lightTracerFolder = this.gui.addFolder('Light Tracer');
-	this.lightTracerSettings = {};
-	var lightTracer = snelly.getLightTracer();
-
-	this.lightTracerSettings.enable = lightTracer.enabled;
-	this.lightTracerSettings.exposure = 0.0;
-	this.lightTracerSettings.gamma = 2.2;
-	this.lightTracerSettings.maxPathLength = lightTracer.maxPathLength;
-	this.lightTracerSettings.maxMarchSteps = lightTracer.maxMarchSteps;
-	this.lightTracerSettings.rayBufferSize = lightTracer.raySize;
-	
-	this.lightTracerFolder.add(this.lightTracerSettings, 'enable').onChange( function(value) { lightTracer.enabled = value;  } );
-	this.lightTracerFolder.add(lightTracer, 'showExternal');
-	this.lightTracerFolder.add(lightTracer, 'showInternal');
-	this.lightTracerFolder.add(this.lightTracerSettings, 'exposure', -10.0, 10.0, 0.01);
-	this.lightTracerFolder.add(this.lightTracerSettings, 'gamma', 0.0, 4.0, 0.01);
-	this.lightTracerFolder.add(this.lightTracerSettings, 'maxPathLength', 4, 1024).onChange( function(value) { lightTracer.maxPathLength = Math.floor(value); lightTracer.reset(); } );
-	this.lightTracerFolder.add(this.lightTracerSettings, 'maxMarchSteps', 32, 1024).onChange( function(value) { lightTracer.maxMarchSteps = Math.floor(value); lightTracer.reset(); } );
-	this.lightTracerFolder.add(this.lightTracerSettings, 'rayBufferSize', 64, 1024).onChange( function(value) { lightTracer.raySize = Math.floor(value); 
-																											    lightTracer.initStates(); 
-																												lightTracer.reset(); } );
-	this.gui.remember(this.lightTracerSettings);
-	this.lightTracerFolder.close();
+	this.visible = !this.visible;
 }
 
-
-function hexToRgb(hex) {
+function hexToRgb(hex) 
+{
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result ? {
         r: parseInt(result[1], 16),
@@ -74,229 +51,255 @@ function hexToRgb(hex) {
     } : null;
 }
 
-
-GUI.prototype.createSurfaceRendererSettings = function()
+GUI.prototype.createRendererSettings = function()
 {
-	this.surfaceRendererFolder = this.gui.addFolder('Surface Renderer');
-	this.surfaceRendererSettings = {};
-	var surfaceRenderer = snelly.getSurfaceRenderer();
+	this.rendererFolder = this.gui.addFolder('Renderer');
+	this.pathtracerSettings = {};
+	var pathtracer = snelly.getRenderer();
+	var camera = snelly.getCamera();
 
-	var renderModes = ['normals', 'blinn'];
-	
-	this.surfaceRendererFolder.add(surfaceRenderer, 'enable');
-	//this.surfaceRendererFolder.add(surfaceRenderer, 'depthTest');
-	this.surfaceRendererFolder.add(surfaceRenderer, 'showBounds');
-	this.surfaceRendererFolder.add(surfaceRenderer, 'renderMode', renderModes).onChange( function(renderMode) { surfaceRenderer.reset(); });
-	this.surfaceRendererFolder.add(surfaceRenderer, 'surfaceAlpha', 0.0, 1.0);
-	this.surfaceRendererFolder.add(surfaceRenderer, 'maxMarchSteps', 1, 1024).onChange( function(value) { surfaceRenderer.maxMarchSteps = Math.floor(value); surfaceRenderer.reset(); } );
+	// @todo: add a basic AO and normals mode as well, useful for scene debugging.
+	var renderModes = ['pt', 'ao', 'normals', 'firsthit'];
+	this.rendererFolder.add(pathtracer, 'renderMode', renderModes).onChange( function(renderMode) { pathtracer.renderMode = renderMode; pathtracer.reset(); });
+	this.rendererFolder.add(pathtracer, 'maxBounces', 1, 10).onChange( function(value) { pathtracer.maxBounces = Math.floor(value); pathtracer.reset(); });
+	this.rendererFolder.add(pathtracer, 'maxMarchSteps', 1, 1024).onChange( function(value) { pathtracer.maxMarchSteps = Math.floor(value); pathtracer.reset(); } );
+	this.rendererFolder.add(pathtracer, 'radianceClamp', -2.0, 6.0).onChange( function(value) { pathtracer.reset(true); } );
+	this.rendererFolder.add(pathtracer, 'exposure', 0.0, 50.0);
+	this.rendererFolder.add(camera, 'fov', 5.0, 120.0).onChange( function(value) { pathtracer.reset(true); } );
+	this.rendererFolder.add(camera, 'aperture',      1.0e-6*snelly.maxScale, 1.0e-3*snelly.maxScale).onChange( function(value) { pathtracer.reset(true); } );
+	this.rendererFolder.add(camera, 'focalDistance', 1.0e-6*snelly.maxScale, 0.1*snelly.maxScale).onChange( function(value) { pathtracer.reset(true); } );
 
-	this.surfaceRendererSettings.diffuseCol1 = [surfaceRenderer.kd1[0]*255.0, surfaceRenderer.kd1[1]*255.0, surfaceRenderer.kd1[2]*255.0];
-	this.surfaceRendererSettings.diffuseCol2 = [surfaceRenderer.kd2[0]*255.0, surfaceRenderer.kd2[1]*255.0, surfaceRenderer.kd2[2]*255.0];
+	this.rendererFolder.add(pathtracer, 'gamma', 0.0, 3.0);
+	this.rendererFolder.add(pathtracer, 'whitepoint', 0.0, 2.0);
+	this.rendererFolder.add(pathtracer, 'shadowStrength', 0.0, 1.0).onChange( function(value) { pathtracer.reset(true); } );
+	this.rendererFolder.add(pathtracer, 'maxStepsIsMiss').onChange( function(value) { pathtracer.reset(true); } );
+	this.rendererFolder.add(pathtracer, 'envMapVisible').onChange( function(value) { pathtracer.reset(true); } );
+	this.rendererFolder.add(pathtracer, 'envMapRotation', 0.0, 360.0).onChange( function(value) { pathtracer.reset(true); } );
+	this.rendererFolder.add(pathtracer, 'AA').onChange( function(value) { pathtracer.reset(true); } );
 
-	this.surfaceRendererFolder.addColor(this.surfaceRendererSettings, 'diffuseCol1').onChange( function(value) 
-	{
-		if (typeof value==='string' || value instanceof String)
-		{
-			var color = hexToRgb(value);
-			surfaceRenderer.kd1[0] = color.r / 255.0;
-			surfaceRenderer.kd1[1] = color.g / 255.0;
-			surfaceRenderer.kd1[2] = color.b / 255.0;
-		}
-		else
-		{
-			surfaceRenderer.kd1[0] = value[0] / 255.0;
-			surfaceRenderer.kd1[1] = value[1] / 255.0;
-			surfaceRenderer.kd1[2] = value[2] / 255.0;
-		}
-		surfaceRenderer.reset(); 
-	});
-
-	this.surfaceRendererFolder.addColor(this.surfaceRendererSettings, 'diffuseCol2').onChange( function(value) 
+	var skyPowerItem = this.rendererFolder.add(pathtracer, 'skyPower', 0.0, 10.0);
+	skyPowerItem.onChange( function(value) 
 	{ 
-		if (typeof value==='string' || value instanceof String)
-		{
-			var color = hexToRgb(value);
-			surfaceRenderer.kd2[0] = color.r / 255.0;
-			surfaceRenderer.kd2[1] = color.g / 255.0;
-			surfaceRenderer.kd2[2] = color.b / 255.0;
-		}
-		else
-		{
-			surfaceRenderer.kd2[0] = value[0] / 255.0;
-			surfaceRenderer.kd2[1] = value[1] / 255.0;
-			surfaceRenderer.kd2[2] = value[2] / 255.0;
-		}
-		surfaceRenderer.reset(); 
-	});
+		snelly.camera.enabled = false;
+		var no_recompile = true;
+		pathtracer.reset(no_recompile);
+	} );
+	skyPowerItem.onFinishChange( function(value) { snelly.camera.enabled = true; } );
 
-	this.surfaceRendererFolder.add(surfaceRenderer, 'specPower', 1.0, 100.0).onChange( function(renderMode) { surfaceRenderer.reset(); });
+	// init gui for spectrum
+	spectrumObj = snelly.getLoadedSpectrum();
+	spectrumObj.initGui(this.rendererFolder);
 
-	this.gui.remember(this.surfaceRendererSettings);
-	this.surfaceRendererFolder.close();
+	this.gui.remember(this.pathtracerSettings);
+	this.rendererFolder.close();
 }
-
-
-GUI.prototype.createEmissionSettings = function()
-{
-	this.emissionFolder = this.gui.addFolder('Emission');
-	var lightTracer = snelly.getLightTracer();
-	var laser = snelly.getLaser();
-	this.emissionSettings = {};
-	this.emissionSettings.showLaserPointer = true;
-	this.emissionSettings.spectrum = 'monochromatic';
-	this.emissionSettings.emissionRadius = 0.01;
-
-	this.emissionFolder.add(this.emissionSettings, 'showLaserPointer').onChange( function(value) { laser.toggleVisibility(value); } );
-	
-	this.emissionRadiusControl = this.emissionFolder.add(this.emissionSettings, 'emissionRadius', 0.0, 3.0);
-	this.emissionRadiusControl.onChange( function(value) 
-	{ 
-		laser.setEmissionRadius(value);      
-		lightTracer.reset(); 
-	} );
-	this.emissionFolder.add(laser, 'emissionSpread', 0.0, 90.0).onChange( function(value) { laser.setEmissionSpreadAngle(value); lightTracer.reset(); } );
-	this.gui.remember(laser);
-
-	// Spectrum selection
-	var GUI = this;
-	var spectrumObj = lightTracer.getLoadedSpectrum();
-	var spectrumName = spectrumObj.getName();
-	var spectra = lightTracer.getSpectra();
-	var spectrumNames = Object.keys(spectra);
-
-	this.emissionSettings["spectrum selection"] = spectrumName;
-	this.emissionFolder.add(this.emissionSettings, 'spectrum selection', spectrumNames).onChange( function(spectrumName) {
-
-						// remove gui for current spectrum
-						var spectrumObj = lightTracer.getLoadedSpectrum();
-						spectrumObj.eraseGui(GUI.emissionFolder);
-
-						// load new scene
-				 		lightTracer.loadSpectrum(spectrumName);
-
-				 		// init gui for new scene
-				 		spectrumObj = lightTracer.getLoadedSpectrum();
-				 		spectrumObj.initGui(GUI.emissionFolder);
-				 		
-				 	} );
-
-	spectrumObj.initGui(this.emissionFolder);
-
-	// Laser transform sliders
-	this.emissionTranslationFolder = this.emissionFolder.addFolder('Translation');
-	var xT = this.emissionTranslationFolder.add(laser.group.position, 'x');
-	var yT = this.emissionTranslationFolder.add(laser.group.position, 'y');
-	var zT = this.emissionTranslationFolder.add(laser.group.position, 'z');
-	xT.onChange( function(value)  { snelly.reset(); } );
-	yT.onChange( function(value)  { snelly.reset(); } );
-	zT.onChange( function(value)  { snelly.reset(); } );
-
-	this.emissionSettings.eulerAngles = new THREE.Vector3();
-	this.emissionSettings.eulerAngles.x = laser.eulerAngles.x * 180.0/Math.PI;
-	this.emissionSettings.eulerAngles.y = laser.eulerAngles.y * 180.0/Math.PI;
-	this.emissionSettings.eulerAngles.z = laser.eulerAngles.z * 180.0/Math.PI;
-
-	this.emissionRotationFolder = this.emissionFolder.addFolder('Rotation');
-	var xR = this.emissionRotationFolder.add(this.emissionSettings.eulerAngles, 'x', -180.0, 180.0);
-	xR.onChange( function(value) 
-	{ 
-		var euler = laser.getEuler();
-		euler.x = value * Math.PI/180.0;
-		laser.setEuler(euler);
-		snelly.reset();
-	} );
-	var yR = this.emissionRotationFolder.add(this.emissionSettings.eulerAngles, 'y', -180.0, 180.0);
-	yR.onChange( function(value) 
-	{ 
-		var euler = laser.getEuler();
-		euler.y = value * Math.PI/180.0;
-		laser.setEuler(euler);
-		snelly.reset();
-	} );
-	var zR = this.emissionRotationFolder.add(this.emissionSettings.eulerAngles, 'z', -180.0, 180.0);
-	zR.onChange( function(value) 
-	{ 
-		var euler = laser.getEuler();
-		euler.z = value * Math.PI/180.0;
-		laser.setEuler(euler);
-		snelly.reset();
-	} );
-
-	this.gui.remember(this.emissionSettings);
-	this.emissionFolder.close();
-	return this.emissionFolder;
-}
-
 
 GUI.prototype.createSceneSettings = function()
 {
-	this.sceneFolder = this.gui.addFolder('Scene');
-	var sceneObj = snelly.getLoadedScene();
-	var sceneName = sceneObj.getName();
-	scenes = snelly.getScenes();
-	var sceneNames = Object.keys(scenes);
+	var sceneObj = snelly.getScene();
+	if (typeof sceneObj.initGui !== "undefined") 
+	{
+		this.sceneFolder = this.gui.addFolder('Scene');
+		sceneObj.initGui(this);
+		this.sceneFolder.open();
+		this.gui.remember(this.sceneSettings);
+	}
+}
 
-	// Scene selection menu
-	this.sceneSettings = {};
-	this.sceneSettings["scene selection"] = sceneName;
-	var GUI = this;
+/** 
+ * Add a dat.GUI UI slider to control a float parameter.
+ * The scene parameters need to be organized into an Object as
+ * key-value pairs, for supply to this function.
+ * @param {Object} parameters - the parameters object for the scene, with a key-value pair (where value is number) for the float parameter name
+ * @param {Object} param - the slider range for this parameter, in the form `{name: 'foo', min: 0.0, max: 100.0, step: 1.0, recompile: true}` (step is optional, recompile is optional [default is false])
+ * @param {Object} folder - optionally, pass the dat.GUI folder to add the parameter to (defaults to the main scene folder)
+ * @returns {Object} the created dat.GUI slider item
+ * @example
+ *		Scene.prototype.initGui = function(gui)            
+ *		{
+ *			gui.addSlider(this.parameters, c);
+ *			gui.addSlider(this.parameters, {name: 'foo2', min: 0.0, max: 1.0});
+ *			gui.addSlider(this.parameters, {name: 'bar', min: 0.0, max: 3.0, recompile: true});
+ *		}
+ */
+GUI.prototype.addSlider = function(parameters, param, folder=undefined)
+{
+	let _f = this.sceneFolder;
+	if (typeof folder !== 'undefined') _f = folder;
+	var name = param.name;
+	var min  = param.min;
+	var max  = param.max;
+	var step = param.step;
+	var recompile = param.recompile;
+	var no_recompile = true;
+	if (!(recompile==null || recompile==undefined)) no_recompile = !recompile;
+	var item;
+	if (step==null || step==undefined) { item = _f.add(parameters, name, min, max, step); }
+	else                               { item = _f.add(parameters, name, min, max);       }
+	item.onChange( function(value) { snelly.reset(no_recompile); snelly.camera.enabled = false; } );
+	item.onFinishChange( function(value) { snelly.camera.enabled = true; } );
+	return item;
+}
 
-	this.sceneFolder.add(this.sceneSettings, 'scene selection', sceneNames).onChange( function(sceneName) {
+/** 
+ * Add a dat.GUI UI color picker to control a 3-element array parameter (where the RGB color channels are mapped into [0,1] float range)
+ * @param {Object} parameters - the parameters object for the scene, with a key-value pair (where value is a 3-element array) for the color parameter name
+ * @param {Object} name - the color parameter name
+ * @param {Object} folder - optionally, pass a scale factor to apply to the RGB color components to calculate the result (defaults to 1.0)
+ * @param {Object} folder - optionally, pass the dat.GUI folder to add the parameter to (defaults to the main scene folder)
+ * @returns {Object} the created dat.GUI color picker item
+*/
+GUI.prototype.addColor = function(parameters, name, scale=1.0, folder=undefined)
+{
+	let _f = this.sceneFolder;
+	if (typeof folder !== 'undefined') _f = folder;
+	_f[name] = [parameters[name][0]*255.0, parameters[name][1]*255.0, parameters[name][2]*255.0];
+	var item = _f.addColor(_f, name);
+	item.onChange( function(color) {
+								if (typeof color==='string' || color instanceof String)
+								{
+									var C = hexToRgb(color);
+									parameters[name][0] = scale * C.r / 255.0;
+									parameters[name][1] = scale * C.g / 255.0;
+									parameters[name][2] = scale * C.b / 255.0;
+								}
+								else
+								{
+									parameters[name][0] = scale * color[0] / 255.0;
+									parameters[name][1] = scale * color[1] / 255.0;
+									parameters[name][2] = scale * color[2] / 255.0;
+								}
+								snelly.reset(true);
+							} );
+	return item;
+}
 
-						// remove gui for current scene
-						var sceneObj = snelly.getLoadedScene();
-						sceneObj.eraseGui(GUI.sceneFolder);
+// (deprecated)
+GUI.prototype.addParameter = function(parameters, param)
+{
+	this.addSlider(parameters, param);
+}
 
-						// load new scene
-				 		snelly.loadScene(sceneName);
+/**
+* Access to internal dat.GUI object
+* @returns {dat.GUI}
+*/
+GUI.prototype.getGUI = function()
+{
+	return this.gui;
+}
 
-				 		// init gui for new scene
-				 		sceneObj = snelly.getLoadedScene();
-				 		sceneObj.initGui(GUI.sceneFolder);
-				 		
-				 	} );
-
-	sceneObj.initGui(this.sceneFolder);
-	this.sceneFolder.open();
-
-	this.gui.remember(this.sceneSettings);
+GUI.prototype.getSceneFolder = function()
+{
 	return this.sceneFolder;
 }
 
-
 GUI.prototype.createMaterialSettings = function()
 {
-	this.materialFolder = this.gui.addFolder('Material');
-	var materialObj = snelly.getLoadedMaterial();
-	var materialName = materialObj.getName();
-	materials = snelly.getMaterials();
-	var materialNames = Object.keys(materials);
-
-	// Material selection menu
-	this.materialSettings = {};
-	this.materialSettings["material selection"] = materialName;
 	var GUI = this;
 
-	this.materialFolder.add(this.materialSettings, 'material selection', materialNames).onChange( function(materialName) {
+	var sceneObj = snelly.getScene();
+	var shader = sceneObj.shader();
 
-						// remove gui for current material
-						var materialObj = snelly.getLoadedMaterial();
-						materialObj.eraseGui(GUI.materialFolder);
-
-						// load new material
-				 		snelly.loadMaterial(materialName);
-
-				 		// init gui for new material
-				 		materialObj = snelly.getLoadedMaterial();
-				 		materialObj.initGui(GUI.materialFolder);
-
+	// Metal settings
+	if (shader.indexOf("SDF_METAL(") !== -1)
+	{
+		this.metalFolder = this.gui.addFolder('Metal material');
+		var metalObj = snelly.getLoadedMetal();
+		var metalName = metalObj.getName();
+		metals = snelly.getMetals();
+		var metalNames = Object.keys(metals);
+		this.metalMaterialSettings = {};
+		this.metalMaterialSettings["metal"] = metalName;
+		var metalItem = this.metalFolder.add(this.metalMaterialSettings, 'metal', metalNames);
+		metalItem.onChange( function(materialName) {
+							var materialObj = snelly.getLoadedMetal(); // remove gui for current material
+							materialObj.eraseGui(GUI.metalFolder);
+					 		snelly.loadMetal(materialName); // load new material
+					 		materialObj = snelly.getLoadedMetal(); // init gui for new material
+					 		materialObj.initGui(GUI.metalFolder);
 				 	} );
-	
-	materialObj.initGui(this.materialFolder);
-	this.materialFolder.open();
+		metalObj.initGui(this.metalFolder);
+		this.metalFolder.close();
+	}
+
+	// Dielectric settings
+	if (shader.indexOf("SDF_DIELECTRIC(") !== -1)
+	{
+		this.dielectricFolder = this.gui.addFolder('Dielectric material');
+		var dielectricObj = snelly.getLoadedDielectric();
+		var dielectricName = dielectricObj.getName();
+		dielectrics = snelly.getDielectrics();
+		var dielectricNames = Object.keys(dielectrics);
+		this.dielMaterialSettings = {};
+		this.dielMaterialSettings["dielectric"] = dielectricName;
+		var dielItem = this.dielectricFolder.add(this.dielMaterialSettings, 'dielectric', dielectricNames);
+		dielItem.onChange( function(materialName) {
+							var materialObj = snelly.getLoadedDielectric(); // remove gui for current material
+							materialObj.eraseGui(GUI.dielectricFolder);
+					 		snelly.loadDielectric(materialName); // load new material
+					 		materialObj = snelly.getLoadedDielectric(); // init gui for new material
+					 		materialObj.initGui(GUI.dielectricFolder);
+					 	} );
+		dielectricObj.initGui(this.dielectricFolder);
+		this.dielectricFolder.close();
+	}
+
+	// Surface settings
+	if (shader.indexOf("SDF_SURFACE(") !== -1)
+	{
+		this.surfaceFolder = this.gui.addFolder('Surface material');
+		var surfaceObj = snelly.getSurface();
+		this.surfaceFolder.diffuse = [surfaceObj.diffuseAlbedo[0]*255.0, surfaceObj.diffuseAlbedo[1]*255.0, surfaceObj.diffuseAlbedo[2]*255.0];
+		var diffItem = this.surfaceFolder.addColor(this.surfaceFolder, 'diffuse');
+		diffItem.onChange( function(albedo) {
+								if (typeof albedo==='string' || albedo instanceof String)
+								{
+									var color = hexToRgb(albedo);
+									surfaceObj.diffuseAlbedo[0] = color.r / 255.0;
+									surfaceObj.diffuseAlbedo[1] = color.g / 255.0;
+									surfaceObj.diffuseAlbedo[2] = color.b / 255.0;
+								}
+								else
+								{
+									surfaceObj.diffuseAlbedo[0] = albedo[0] / 255.0;
+									surfaceObj.diffuseAlbedo[1] = albedo[1] / 255.0;
+									surfaceObj.diffuseAlbedo[2] = albedo[2] / 255.0;
+								}
+								snelly.reset(true);
+							} );
+
+		this.surfaceFolder.specular = [surfaceObj.specAlbedo[0]*255.0, surfaceObj.specAlbedo[1]*255.0, surfaceObj.specAlbedo[2]*255.0];
+		var specItem = this.surfaceFolder.addColor(this.surfaceFolder, 'specular');
+		specItem.onChange( function(albedo) {
+								if (typeof albedo==='string' || albedo instanceof String)
+								{
+									var color = hexToRgb(albedo);
+									surfaceObj.specAlbedo[0] = color.r / 255.0;
+									surfaceObj.specAlbedo[1] = color.g / 255.0;
+									surfaceObj.specAlbedo[2] = color.b / 255.0;
+								}
+								else
+								{
+									surfaceObj.specAlbedo[0] = albedo[0] / 255.0;
+									surfaceObj.specAlbedo[1] = albedo[1] / 255.0;
+									surfaceObj.specAlbedo[2] = albedo[2] / 255.0;
+								}
+								snelly.reset(true);
+							} );
+
+		this.roughnessItem = this.surfaceFolder.add(surfaceObj, 'roughness', 0.0, 0.1);
+		this.roughnessItem.onChange( function(value) { surfaceObj.roughness = value; snelly.camera.enabled = false; snelly.reset(true); } );
+		this.roughnessItem.onFinishChange( function(value) { snelly.camera.enabled = true; } );
+
+		this.iorItem = this.surfaceFolder.add(surfaceObj, 'ior', 1.0, 3.0);
+		this.iorItem.onChange( function(value) { surfaceObj.ior = value; snelly.camera.enabled = false; snelly.reset(true); } );
+		this.iorItem.onFinishChange( function(value) { snelly.camera.enabled = true; } );
+
+		this.surfaceFolder.close();
+	}
 
 	this.gui.remember(this.materialSettings);
-	return this.materialFolder;
 }
 
 

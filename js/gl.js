@@ -1,5 +1,10 @@
 
-
+/**
+ * Namespace for webGL utility wrappers.
+ * Functions for loading shader uniform variables are exposed to the user
+ * for convenience.
+ * @namespace GLU
+ */
 var GLU = {};
 
 (function() {
@@ -12,25 +17,15 @@ var GLU = {};
 	{
 		try 
 		{
-			var gl = this.canvas.getContext("webgl") || this.canvas.getContext("experimental-webgl");
+			var gl = this.canvas.getContext("webgl2", {preserveDrawingBuffer: true});
 		} catch (e) {}
-		if (!gl) throw new Error("Could not initialise WebGL");
+		if (!gl) this.fail("Could not initialise WebGL");
 		this.gl = gl;
 
 		//console.log('Supported webGL extensions: ' + gl.getSupportedExtensions());
-		this.floatExt    = gl.getExtension("OES_texture_float");
+		this.floatBufExt = gl.getExtension("EXT_color_buffer_float");
 		this.floatLinExt = gl.getExtension("OES_texture_float_linear");
-		this.floatBufExt = gl.getExtension("WEBGL_color_buffer_float");
-		this.multiBufExt = gl.getExtension("WEBGL_draw_buffers");
-		this.depthTexExt = gl.getExtension("WEBGL_depth_texture");
-		this.blendMinMaxExt = gl.getExtension("EXT_blend_minmax");
-
-		if (!this.floatExt || !this.floatLinExt) throw new Error("Your platform does not support float textures");
-		if (!this.multiBufExt)                   throw new Error("Your platform does not support the draw buffers extension");
-		if (gl.getParameter(this.multiBufExt.MAX_DRAW_BUFFERS_WEBGL) < 4)
-		{
-			throw new Error("Your platform does not support 4 draw buffers");
-		}
+		if (!this.floatBufExt || !this.floatLinExt) this.fail("Your platform does not support float textures");
 	}
 
 	this.glTypeSize = function(type) 
@@ -52,6 +47,8 @@ var GLU = {};
 		}
 	}
 
+	// We assume here a global Shaders object has been defined, which
+	// maps names like foo-vertex-shader, foo-fragment-shader to the respective code for shader name foo.
 	this.resolveShaderSource = function(shader_names)
 	{
 		var shaderSources = {};
@@ -84,7 +81,9 @@ var GLU = {};
 		if (!success) 
 		{
 			// something went wrong with the link
-			throw ("Program failed to link, error: " + gl.getProgramInfoLog (program));
+			this.fail("Program failed to link: " + gl.getProgramInfoLog(program) + 
+				    "\n" + gl.getShaderInfoLog(fragmentShader) + 
+				    "\n" + gl.getShaderInfoLog(vertexShader));
 		}
 
 		return program;
@@ -100,7 +99,7 @@ var GLU = {};
 		{
 			// Something went wrong during compilation; get the error
 			var shaderTypeStr = (shaderType==gl.VERTEX_SHADER) ? 'vertex' : 'fragment';
-			throw ("Could not compile " + shaderName + " " + shaderTypeStr + " shader: " + gl.getShaderInfoLog(shader));
+			this.fail("Could not compile " + shaderName + " " + shaderTypeStr + " shader: " + gl.getShaderInfoLog(shader));
 		}
 		return shader;
 	}
@@ -110,6 +109,11 @@ var GLU = {};
 	// GLU.Shader object
 	///////////////////////////////////////////////////
 
+	/** 
+	* Represents a webGL vertex or fragment shader:
+	* @constructor
+	* @memberof GLU
+	*/
 	this.Shader = function(name, shaderSources, replacements)
 	{
 		shaderSource = shaderSources[name];
@@ -129,7 +133,6 @@ var GLU = {};
 				}
 			}
 		};
-
 		var vertexShader       = GLU.compileShaderSource(name, vertSource, gl.VERTEX_SHADER);
 		var fragmentShader     = GLU.compileShaderSource(name, fragSource, gl.FRAGMENT_SHADER);
 		this.program = GLU.createProgram(vertexShader, fragmentShader);
@@ -141,6 +144,15 @@ var GLU = {};
 	this.Shader.prototype.bind = function() 
 	{
 		gl.useProgram(this.program);
+	}
+
+	/** 
+	* Access the underlying webGL program object
+	* @returns {WebGLProgram} - the underlying webGL program object for this shader
+	*/
+	this.Shader.prototype.getProgram = function() 
+	{
+		return this.program;
 	}
 
 	this.Shader.prototype.getAttribLocation = function(attribName)
@@ -167,6 +179,12 @@ var GLU = {};
 	        gl.uniform1i(id, texture.boundUnit);
 	}
 
+	/** Provide an integer (via uniform1i) to the currently bound shader
+	* @memberof GLU.this.Shader
+	* @method uniformI
+	* @param {string} name - The name of the uniform variable
+	* @param {number} i - The integer value
+	*/
 	this.Shader.prototype.uniformI = function(name, i) 
 	{
 		var id = this.uniformIndex(name);
@@ -174,6 +192,12 @@ var GLU = {};
 		    gl.uniform1i(id, i);
 	}
 
+	/** Provide a float (via uniform1f) to the currently bound shader
+	* @memberof GLU.this.Shader
+	* @method uniformF
+	* @param {string} name - The name of the uniform variable
+	* @param {number} f - The float value
+	*/
 	this.Shader.prototype.uniformF = function(name, f) 
 	{
 		var id = this.uniformIndex(name);
@@ -181,6 +205,13 @@ var GLU = {};
 		    gl.uniform1f(id, f);
 	}
 
+	/** Provide a vec2 uniform (via uniform2f) to the currently bound shader
+	* @memberof GLU.this.Shader
+	* @method uniform2F
+	* @param {string} name - The name of the uniform variable
+	* @param {number} f1 - The first float value
+	* @param {number} f2 - The second float value
+	*/
 	this.Shader.prototype.uniform2F = function(name, f1, f2) 
 	{
 		var id = this.uniformIndex(name);
@@ -188,6 +219,27 @@ var GLU = {};
 		    gl.uniform2f(id, f1, f2);
 	}
 
+	/** Provide an array of floats (via uniform1Fv) to the currently bound shader
+	*   i.e. the shader declares e.g. `uniform float values[19];`
+	* @memberof GLU.this.Shader
+	* @method uniform1Fv
+	* @param {string} name - The name of the uniform variable
+	* @param {Float32Array} fvec - An array of floats
+	*/
+	this.Shader.prototype.uniform1Fv = function(name, fvec) 
+	{
+		var id = this.uniformIndex(name);
+		if (id != -1)
+		    gl.uniform1fv(id, fvec);
+	}
+
+	/** Provide an array of vec2 (via uniform2fv) to the currently bound shader
+	*   i.e. the shader declares e.g. `uniform vec2 vectors[19];`
+	* @memberof GLU.this.Shader
+	* @method uniform2Fv
+	* @param {string} name - The name of the uniform variable
+	* @param {Float32Array} fvec2 - An array of floats, 2 per vector
+	*/
 	this.Shader.prototype.uniform2Fv = function(name, fvec2) 
 	{
 		var id = this.uniformIndex(name);
@@ -195,6 +247,14 @@ var GLU = {};
 		    gl.uniform2fv(id, fvec2);
 	}
 
+	/** Provide a vec3 uniform (via uniform3f) to the currently bound shader
+	* @memberof GLU.this.Shader
+	* @method uniform3F
+	* @param {string} name - The name of the uniform variable
+	* @param {number} f1 - The first float value
+	* @param {number} f2 - The second float value
+	* @param {number} f3 - The third float value
+	*/
 	this.Shader.prototype.uniform3F = function(name, f1, f2, f3) 
 	{
 		var id = this.uniformIndex(name);
@@ -202,7 +262,13 @@ var GLU = {};
 		    gl.uniform3f(id, f1, f2, f3);
 	}
 
-
+	/** Provide an array of vec3 (via uniform3fv) to the currently bound shader
+	*   i.e. the shader declares e.g. `uniform vec3 vectors[19];`
+	* @memberof GLU.this.Shader
+	* @method uniform3Fv
+	* @param {string} name - The name of the uniform variable
+	* @param {Float32Array} fvec3 - An array of floats, 3 per vector
+	*/
 	this.Shader.prototype.uniform3Fv = function(name, fvec3) 
 	{
 		var id = this.uniformIndex(name);
@@ -210,6 +276,15 @@ var GLU = {};
 		    gl.uniform3fv(id, fvec3);
 	}
 
+	/** Provide a vec4 uniform (via uniform4F) to the currently bound shader
+	* @memberof GLU.this.Shader
+	* @method uniform4F
+	* @param {string} name - The name of the uniform variable
+	* @param {number} f1 - The first float value
+	* @param {number} f2 - The second float value
+	* @param {number} f3 - The third float value
+	* @param {number} f4 - The fourth float value
+	*/
 	this.Shader.prototype.uniform4F = function(name, f1, f2, f3, f4) 
 	{
 		var id = this.uniformIndex(name);
@@ -217,11 +292,32 @@ var GLU = {};
 		    gl.uniform4F(id, f1, f2, f3, f4);
 	}
 
+	/** Provide an array of vec4 (via uniform4fv) to the currently bound shader
+	*   i.e. the shader declares e.g. `uniform vec4 vectors[19];`
+	* @memberof GLU.this.Shader
+	* @method uniform4Fv
+	* @param {string} name - The name of the uniform variable
+	* @param {Float32Array} fvec4 - An array of floats, 4 per vector
+	*/
 	this.Shader.prototype.uniform4Fv = function(name, fvec4) 
 	{
 		var id = this.uniformIndex(name);
 		if (id != -1)
 		    gl.uniform4fv(id, fvec4);
+	}
+
+	/** Provide a matrix (via uniformMatrix4fv) to the currently bound shader
+	*  i.e. the shader declares e.g. `uniform mat4 matrix;` 
+	* @memberof GLU.this.Shader
+	* @method uniformMatrix4fv
+	* @param {string} name - The name of the uniform variable
+	* @param {Float32Array} matrixArray16 - An array of 16 floats
+	*/
+	this.Shader.prototype.uniformMatrix4fv = function(name, matrixArray16) 
+	{
+		var id = this.uniformIndex(name);
+		if (id != -1)
+		    gl.uniformMatrix4fv(id, false, matrixArray16);
 	}
 
 	///////////////////////////////////////////////////
@@ -301,33 +397,35 @@ var GLU = {};
 
 	this.Texture = function(width, height, channels, isFloat, isLinear, isClamped, texels) 
 	{
-		var coordMode = isClamped ? gl.CLAMP_TO_EDGE : gl.REPEAT;
-		this.type     = isFloat   ? gl.FLOAT         : gl.UNSIGNED_BYTE;
-		this.format   = [gl.LUMINANCE, gl.RG, gl.RGB, gl.RGBA][channels - 1];
-
 		this.width  = width;
 		this.height = height;
+		this.coordMode = isClamped ? gl.CLAMP_TO_EDGE : gl.REPEAT;
+		this.type      = isFloat   ? gl.FLOAT         : gl.UNSIGNED_BYTE;
+		this.internalformat   = [gl.R32F, gl.RG, gl.RGB, gl.RGBA32F][channels - 1];
+		this.format           = [gl.RED, gl.RG, gl.RGB, gl.RGBA][channels - 1];
+
+		this.interpMode = isLinear ? gl.LINEAR : gl.NEAREST;
 
 		this.glName = gl.createTexture();
 		gl.bindTexture(gl.TEXTURE_2D, this.glName);
-		gl.texImage2D(gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, texels);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, coordMode);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, coordMode);
-		this.setSmooth(isLinear);
-
+		gl.texImage2D(gl.TEXTURE_2D, 0, this.internalformat, this.width, this.height, 0, this.format, this.type, texels);
+		
+		if (texels !== null) this.setFilter();
 		this.boundUnit = -1;
-	}
-
-	this.Texture.prototype.setSmooth = function(smooth) 
-	{
-		var interpMode = smooth ? gl.LINEAR : gl.NEAREST;
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, interpMode);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, interpMode);
 	}
 
 	this.Texture.prototype.copy = function(texels) 
 	{
-		gl.texImage2D(gl.TEXTURE_2D, 0, this.format, this.width, this.height, 0, this.format, this.type, texels);
+		gl.texImage2D(gl.TEXTURE_2D, 0, this.internalformat, this.width, this.height, 0, this.format, this.type, texels);
+		if (texels !== null) this.setFilter();
+	}
+
+	this.Texture.prototype.setFilter = function() 
+	{
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, this.coordMode);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, this.coordMode);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.interpMode);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this.interpMode);
 	}
 
 	this.Texture.prototype.bind = function(unit) 
@@ -337,6 +435,44 @@ var GLU = {};
 		this.boundUnit = unit;
 	}
 
+
+	// creates a texture info { width: w, height: h, texture: tex }
+	// The texture will start with 1x1 pixels and be updated
+	// when the image has loaded
+	this.loadImageAndCreateTextureInfo = function(url, callback) 
+	{
+		var tex = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, tex);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+
+		var imgInfo = {
+			width: 1,   // we don't know the size until it loads
+			height: 1,
+			texture: tex,
+			url: url,
+		};
+		var img = new Image();
+		img.addEventListener('load', function() {
+			imgInfo.width = img.width;
+			imgInfo.height = img.height;
+			imgInfo.url = url;
+			imgInfo.tex = tex;
+			gl.bindTexture(gl.TEXTURE_2D, tex);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8, gl.RGB, gl.UNSIGNED_BYTE, img);
+
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+			callback(imgInfo);
+		});
+		//if ((new URL(url)).origin !== window.location.origin) 
+		{
+  		  	img.crossOrigin = "";
+  		}
+		img.src = url;
+		return imgInfo;
+	}
 
 	///////////////////////////////////////////////////
 	// GLU.RenderTarget object
@@ -357,24 +493,22 @@ var GLU = {};
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	}
 
-	this.thing = false
-
 	this.RenderTarget.prototype.attachTexture = function(texture, index) 
 	{
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, GLU.multiBufExt.COLOR_ATTACHMENT0_WEBGL + index, gl.TEXTURE_2D, texture.glName, 0);
+		gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + index, gl.TEXTURE_2D, texture.glName, 0);
 	}
 
 	this.RenderTarget.prototype.detachTexture = function(index) 
 	{
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, GLU.multiBufExt.COLOR_ATTACHMENT0_WEBGL + index, gl.TEXTURE_2D, null, 0);
+		gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + index, gl.TEXTURE_2D, null, 0);
 	}
 
 	this.RenderTarget.prototype.drawBuffers = function(numBufs) 
 	{
 		var buffers = [];
 		for (var i = 0; i<numBufs; ++i)
-		    buffers.push(GLU.multiBufExt.COLOR_ATTACHMENT0_WEBGL + i);
-		GLU.multiBufExt.drawBuffersWEBGL(buffers);
+		    buffers.push(gl.COLOR_ATTACHMENT0 + i);
+		gl.drawBuffers(buffers);
 	}
 
 
@@ -385,31 +519,79 @@ var GLU = {};
 	this.fail = function(message)
 	{
 		var sorryP = document.createElement("p"); 
-		sorryP.appendChild(document.createTextNode("Sorry! :("));
-		sorryP.style.fontSize = "50px";
+		sorryP.appendChild(document.createTextNode("[Gravy] error occurred:"));
+		sorryP.style.fontSize = "32px";
+		sorryP.style.color = 'red';
 
 		var failureP = document.createElement("p");
 		failureP.className = "warning-box";
-		failureP.innerHTML = message;
-
-		var errorImg = document.createElement("img"); 
-		errorImg.title = errorImg.alt = "The Element of Failure";
-		errorImg.src = "fail.png";
-		errorImg.width = 600;
+		failureP.style.fontSize = "24px";
+		failureP.innerHTML = '<pre>' + '    ' + message + '</pre>';
 
 		var failureDiv = document.createElement("div"); 
 		failureDiv.className = "center";
 		failureDiv.appendChild(sorryP);
-		failureDiv.appendChild(errorImg);
 		failureDiv.appendChild(failureP);
 
-		document.getElementById("content").appendChild(failureDiv);
-		this.overlay.style.display = this.canvas.style.display = 'none';
+		document.getElementById("container").appendChild(failureDiv);
+		this.canvas.style.display = 'none';
+
+		gravy.terminated = true;
+		throw new Error("Terminating Gravy");
 	}
 
-	this.canvas = document.getElementById('render-canvas');
-	this.canvas.width = 1;
-	this.canvas.height= 1;
+	// Create CSS rules for the document contents
+	let style = document.createElement("style");
+	style.appendChild(document.createTextNode("")); // WebKit hack :(
+	document.head.appendChild(style);
+	let sheet = window.document.styleSheets[0];
+
+	sheet.insertRule(`body{
+  margin: 0px;
+  overflow: hidden;
+}`, sheet.cssRules.length);
+
+	sheet.insertRule(`#container {
+    position: relative;
+    margin: 0px;
+    padding: 0px;
+}`, sheet.cssRules.length);
+
+	sheet.insertRule(`#textContainer {
+    position: absolute;
+    margin: 0px;
+    overflow: hidden;
+    left: 0px;
+    top: 0px;
+    pointer-events: none;   
+    z-index: 1;
+}`, sheet.cssRules.length);
+
+	sheet.insertRule(`#gui { 
+    position: absolute; 
+    z-index: 100;
+    right: 0px;
+}`, sheet.cssRules.length);
+
+	// Create here the DOM elements for renderer and text canvas
+	var container = document.createElement("div");
+	container.id = "container";
+	document.body.appendChild(container);
+
+	var render_canvas = document.createElement('canvas');
+	render_canvas.id = "render-canvas";
+	render_canvas.width  = window.innerWidth;
+	render_canvas.height = window.innerHeight;
+	container.appendChild(render_canvas);
+	this.canvas = render_canvas;
+
+	var textContainer = document.createElement("div");
+	textContainer.id = "textContainer";
+	container.appendChild(textContainer);
+
+	var text_canvas = document.createElement('canvas');
+	text_canvas.id = "text-canvas";
+	textContainer.appendChild(text_canvas);
 
 	try 
 	{
@@ -417,9 +599,7 @@ var GLU = {};
 	}
 	catch (e) 
 	{
-		/* GL errors at this stage are to be expected to some degree,
-		   so display a nice error message and call it quits */
-		this.fail(e.message + ". This demo won't run in your browser.");
+		this.fail(e.message + ". This can't run in your browser.");
 		return;
 	}
 

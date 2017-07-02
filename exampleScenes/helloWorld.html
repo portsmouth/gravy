@@ -1,0 +1,86 @@
+   
+<body onload="onLoad();">
+
+<script src="../js/thirdparty/jquery-1.11.3.min.js"></script>
+<script src="../js/thirdparty/three/three.min.js"></script>
+<script src="../js/thirdparty/three/libs/stats.min.js"></script>
+<script src="../js/thirdparty/three/libs/dat.gui.min.js"></script>
+<script src="../js/thirdparty/three/controls/OrbitControls.js"></script>
+
+<script src="../js/gl.js"></script>
+<script src="../js/gui.js"></script>
+<script src="../js/shaders.js"></script>
+<script src="../js/raytracer.js"></script>
+<script src="../js/gravy.js"></script>
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*               gravitational potential definition                  */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script>
+
+function Potential() {}
+Potential.prototype.init = function(gravy)
+{
+    this.par = {};
+
+    this.par.p1 = [1, 0, 0];
+    this.par.m1 = 1.0; // units?
+
+    this.par.p2 = [-1, 0, 0];
+    this.par.m2 = 0.5; // units?
+}
+
+Potential.prototype.getScale = function()
+{
+    return 1.0;
+}
+
+Potential.prototype.program = function()
+{
+    return `
+    uniform vec3 p1;
+    uniform vec3 p2;
+
+    uniform float m1;
+    uniform float m2;
+
+    float POTENTIAL(in vec3 X)
+    {
+        float d1 = length(X - p1);
+        float d2 = length(X - p2);
+        return -(m1/p1 + m2/p2);   // units?
+    }`;
+}
+
+Potential.prototype.syncProgram = function(gravy, program) 
+{ 
+    program.uniform3Fv("p1", this.par.p1);
+    program.uniform3Fv("p2", this.par.p2);
+
+    program.uniformF("m1", this.par.m1); 
+    program.uniformF("m2", this.par.m2); 
+}
+
+Potential.prototype.getName = function() { return 'A simple two point mass system'; }
+Potential.prototype.getURL = function() { return "https://github.com/portsmouth/snelly/blob/master/exampleScenes/helloWorld.html"; }
+
+Potential.prototype.initGui = function(gui) 
+{ 
+    gui.addSlider(this.par, {name: 'm1', min: 0.0, max: 1.0});
+    gui.addSlider(this.par, {name: 'm2', min: 0.0, max: 1.0}); 
+}
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+function onLoad() { gravy = new Gravy(new Potential()); animateLoop(); }
+function animateLoop() { gravy.render(); window.requestAnimationFrame(animateLoop); }
+</script>
+
+</body>
