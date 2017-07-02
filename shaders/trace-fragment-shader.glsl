@@ -46,11 +46,11 @@ vec3 potential_gradient(in vec3 X)
 void propagate(inout vec3 X, inout vec3 D)
 {
 	// deflect direction according to lens equation, given current X and D
-	//vec3 grad = potential_gradient(X);
-	//vec3 grad_project = grad - D*dot(grad, D);
-	//D += -2.0*stepDistance*grad_project;
-	//D = normalize(D);
-    X += 0.01*D; //stepDistance*D;
+	vec3 grad = potential_gradient(X);
+	vec3 grad_project = grad - D*dot(grad, D);
+	D += -2.0*stepDistance*grad_project;
+	D = normalize(D);
+    X += stepDistance*D;
 }
 
 

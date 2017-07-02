@@ -1,7 +1,7 @@
 precision highp float;
 
 uniform sampler2D Fluence;
-uniform float invNumPaths;
+uniform float invNumRays;
 uniform float exposure;
 uniform float invGamma;
 
@@ -11,7 +11,7 @@ out vec4 outputColor;
 void main() 
 {
 	vec3 fluence = texture(Fluence, vTexCoord).rgb;
-	vec3 phi = float(invNumPaths) * fluence; // normalized fluence
+	vec3 phi = float(invNumRays) * fluence; // normalized fluence
 
 	// Apply exposure 
 	float gain = pow(2.0, exposure);

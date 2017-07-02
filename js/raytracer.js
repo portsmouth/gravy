@@ -65,15 +65,18 @@ var Raytracer = function()
 	var gl = GLU.gl;
 
 	// Initialize textures containing ray states
-	this.raySize = 1024;
-	this.activeBlock = this.raySize;
+	this.raySize = 512;
 	this.enabled = true;
 	this.initStates();
 
-	this.maxNumSteps = 256;
-	this.marchDistance = 10.0; // in units of scene length scale
+	this.maxNumSteps = 64;
+	this.marchDistance = 20.0; // in units of scene length scale
 	this.exposure = 3.0;
 	this.gamma = 2.2;
+
+	this.sourceDist = 10.0;    // in units of scene length scale
+	this.sourceRadius = 0.001; // in units of scene length scale
+	this.sourceBeamAngle = 135.0;
 
 	// Create a quad VBO for rendering textures
 	this.quadVbo = this.createQuadVbo();
@@ -104,10 +107,11 @@ Raytracer.prototype.createQuadVbo = function()
 Raytracer.prototype.reset = function()
 {
 	this.wavesTraced = 0;
-	this.raysTraced = 0; // in total summed over all waves
-	this.numSteps = 0; // in current wave
+	this.raysTraced = 0;
+	this.pathLength = 0;
 
 	this.compileShaders();
+	this.initStates();
 
 	// Clear fluence buffers
 	let gl = GLU.gl;
@@ -176,16 +180,15 @@ Raytracer.prototype.initStates = function()
 Raytracer.prototype.getStats = function()
 {
 	stats = {};
-	stats.rayCount      = this.raysTraced;
-	stats.wavesTraced   = this.wavesTraced;
+	stats.rayCount    = this.raysTraced;
+	stats.wavesTraced = this.wavesTraced;
+	stats.maxNumSteps = this.maxNumSteps;
 	return stats;
 }
 
 Raytracer.prototype.composite = function()
 {
 	let gl = GLU.gl;
-	gl.viewport(0, 0, this.width, this.height);
-	gl.disable(gl.DEPTH_TEST);
 
 	// Normalize and tonemap the fluence buffer to produce final pixels
 	this.compProgram.bind();
@@ -194,7 +197,7 @@ Raytracer.prototype.composite = function()
 	// Normalize the emission by dividing by the total number of paths
 	// (and also apply gamma correction)
 	var gui = gravy.getGUI();
-	this.compProgram.uniformF("invNumWaves", 1.0/Math.max(this.wavesTraced, 1));
+	this.compProgram.uniformF("invNumRays", 1.0/Math.max(this.raysTraced, 1));
 	this.compProgram.uniformF("exposure", this.exposure);
 	this.compProgram.uniformF("invGamma", 1.0/this.gamma);
 	
@@ -222,6 +225,7 @@ Raytracer.prototype.render = function()
 
 	var potentialObj = gravy.getPotential();
 	if (potentialObj==null) return;
+	let lengthScale = potentialObj.getScale();
 
 	var current = this.currentState;
 	var next    = 1 - current;
@@ -237,22 +241,17 @@ Raytracer.prototype.render = function()
 	this.quadVbo.bind();
 
 	// initialize emitter rays (the beginning of a 'wave')
-	if (this.numSteps == 0)
+	if (this.pathLength == 0)
 	{
 		this.initProgram.bind(); // Start all rays at emission point(s)
 		this.rayStates[current].rngTex.bind(0); // Read random seed from the current state
 		this.initProgram.uniformTexture("RngData", this.rayStates[current].rngTex);
 
 		// Emitter data -- hard code for now
-		//let source = gravy.source;
-		sourcePos = new THREE.Vector3(10.0, 0.0, 0.0); //source.getPoint();
-		sourceDir = new THREE.Vector3(-1.0, 0.0, 0.0); //source.getDirection();
-		let emitterRadius = 0.0; //source.getEmissionRadius();
-		let emissionSpread = 45.0; //source.getEmissionSpreadAngle();
-		this.initProgram.uniform3F("EmitterPos", sourcePos.x, sourcePos.y, sourcePos.z);
-		this.initProgram.uniform3F("EmitterDir", sourceDir.x, sourceDir.y, sourceDir.z);
-		this.initProgram.uniformF("EmitterRadius", emitterRadius);
-		this.initProgram.uniformF("EmitterSpread", emissionSpread);
+		this.initProgram.uniform3F("SourcePos", lengthScale * this.sourceDist, 0.0, 0.0);
+		this.initProgram.uniform3F("SourceDir", -1.0, 0.0, 0.0);
+		this.initProgram.uniformF("SourceRadius", lengthScale* this.sourceRadius);
+		this.initProgram.uniformF("SourceBeamAngle", this.sourceBeamAngle);
 
 		// Write emitted ray initial conditions into 'next' state
 		this.quadVbo.draw(this.initProgram, gl.TRIANGLE_FAN);
@@ -264,14 +263,17 @@ Raytracer.prototype.render = function()
 		// And we prepare to write into the 'next' state
 		this.fbo.drawBuffers(4);
 		this.rayStates[next].attach(this.fbo);
+
+		this.raysTraced += this.raySize*this.raySize;
 	}
 
-	// Fire rays into potential, generating new ray pos/dir data in 'next' rayStates textures
+	
+	
+	// Propagate the current wavefront of rays through the potential, generating new ray pos/dir data in 'next' rayStates textures
 	{
 		this.traceProgram.bind();
 		this.rayStates[current].bind(this.traceProgram);       // Use the current state as the initial conditions
 
-		let lengthScale = potentialObj.getScale();
 		let stepDistance = this.marchDistance * lengthScale / this.maxNumSteps; // in units of scene length scale
 		this.traceProgram.uniformF("lengthScale", potentialObj.getScale()); 
 		this.traceProgram.uniformF("stepDistance", stepDistance); 
@@ -287,9 +289,9 @@ Raytracer.prototype.render = function()
 		gl.disable(gl.DEPTH_TEST);
 		this.fbo.drawBuffers(1);
 		
-		if (this.numSteps == 0 || this.wavesTraced==0)
+		if (this.pathLength == 0 || this.wavesTraced==0)
 		{
-			// Clear wavebuffer on emitting new rays
+			// Clear wavebuffer before the first bounce
 			gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
 			this.fbo.attachTexture(this.waveBuffer, 0); // write to wavebuffer
@@ -324,17 +326,17 @@ Raytracer.prototype.render = function()
 
 		this.rayVbo.bind(); // Binds the TexCoord attribute
 		this.fbo.attachTexture(this.waveBuffer, 0); // write to wavebuffer
-		this.rayVbo.draw(this.lineProgram, gl.LINES, this.raySize*this.activeBlock*2);
+		this.rayVbo.draw(this.lineProgram, gl.LINES, this.raySize*this.raySize*2);
 
-		this.numSteps += 1;
+		this.pathLength += 1;
 	}
 
-	//if (this.numSteps==this.maxNumSteps || this.wavesTraced<1)
+	//if (this.pathLength==this.maxNumSteps || this.wavesTraced<1)
 	{
-		// Blend the wavebuffer contents, i.e. a complete set of rendered rays,
-		// into the persistent fluence buffer
+		// Add the wavebuffer contents, a complete set of rendered path segments,
+		// into the fluence buffer
 		gl.enable(gl.BLEND);
-		gl.blendFunc(gl.ONE, gl.ONE); // accumulate radiances of all ray segments from current 'wave' of rays
+		gl.blendFunc(gl.ONE, gl.ONE); // accumulate radiances of all line segments from current 'wave' of bounces
 		
 		this.quadVbo.bind();
 
@@ -344,16 +346,14 @@ Raytracer.prototype.render = function()
 		this.passProgram.uniformTexture("WaveBuffer", this.waveBuffer);
 		this.quadVbo.draw(this.passProgram, gl.TRIANGLE_FAN);
 
-		this.raysTraced += this.raySize*this.activeBlock;
-		if (this.numSteps == this.maxNumSteps)
+		if (this.pathLength >= this.maxNumSteps)
 		{
 			console.log('wavesTraced: ', this.wavesTraced);
 			this.wavesTraced += 1;
-			this.numSteps = 0;
+			this.pathLength = 0;
 		}
 	}
 
-	//this.activeBlock = Math.min(512, this.activeBlock + 4);
 	this.fbo.unbind();
 	gl.disable(gl.BLEND);
 	
@@ -370,10 +370,7 @@ Raytracer.prototype.resize = function(width, height)
 	this.width = width;
 	this.height = height;
 
-	// 0 = interior, 1 = exterior
 	this.waveBuffer    = new GLU.Texture(width, height, 4, true, false, true, null);
-
-    // 0 = interior, 1 = exterior
 	this.fluenceBuffer = new GLU.Texture(width, height, 4, true, false, true, null);
 
 	this.reset();

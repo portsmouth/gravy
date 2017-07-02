@@ -4,7 +4,7 @@ var Shaders = {
 precision highp float;
 
 uniform sampler2D Fluence;
-uniform float invNumPaths;
+uniform float invNumRays;
 uniform float exposure;
 uniform float invGamma;
 
@@ -14,7 +14,7 @@ out vec4 outputColor;
 void main() 
 {
 	vec3 fluence = texture(Fluence, vTexCoord).rgb;
-	vec3 phi = float(invNumPaths) * fluence; // normalized fluence
+	vec3 phi = float(invNumRays) * fluence; // normalized fluence
 
 	// Apply exposure 
 	float gain = pow(2.0, exposure);
@@ -50,10 +50,11 @@ void main(void)
 precision highp float;
 
 uniform sampler2D RngData;
-uniform vec3 EmitterPos;
-uniform vec3 EmitterDir;
-uniform float EmitterRadius;
-uniform float EmitterSpread; // in degrees
+
+uniform vec3 SourcePos;
+uniform vec3 SourceDir;
+uniform float SourceRadius;
+uniform float SourceBeamAngle; // in degrees
 
 layout(location = 0) out vec4 gbuf_pos;
 layout(location = 1) out vec4 gbuf_dir;
@@ -84,29 +85,29 @@ void main()
 {
 	vec4 seed = texture(RngData, vTexCoord);
 
-	float rPos   = EmitterRadius*sqrt(rand(seed));
+	float rPos   = SourceRadius*sqrt(rand(seed));
 	float phiPos = 2.0*M_PI*rand(seed);
 	vec3 X = vec3(1.0, 0.0, 0.0);
 	vec3 Z = vec3(0.0, 0.0, 1.0);
-	vec3 u = cross(Z, EmitterDir);
+	vec3 u = cross(Z, SourceDir);
 	if ( length(u) < 1.0e-3 )
 	{
-		u = cross(X, EmitterDir);
+		u = cross(X, SourceDir);
 	}
 	u = normalize(u);
-	vec3 v = cross(EmitterDir, u);
-	vec3 pos = EmitterPos + rPos*(u*cos(phiPos) + v*sin(phiPos)); 
+	vec3 v = cross(SourceDir, u);
+	vec3 pos = SourcePos + rPos*(u*cos(phiPos) + v*sin(phiPos)); 
 
 	// Emit in a cone with the given spread
-	float spreadAngle = 0.5*abs(EmitterSpread)*M_PI/180.0;
+	float spreadAngle = 0.5*abs(SourceBeamAngle)*M_PI/180.0;
 	float rDir = min(tan(spreadAngle), 1.0e6) * sqrt(rand(seed));
 	float phiDir = 2.0*M_PI*rand(seed);
-	vec3 dir = normalize(EmitterDir + rDir*(u*cos(phiDir) + v*sin(phiDir)));
+	vec3 dir = normalize(SourceDir + rDir*(u*cos(phiDir) + v*sin(phiDir)));
 	
 	gbuf_pos = vec4(pos, 1.0);
 	gbuf_dir = vec4(dir, 1.0);
 	gbuf_rnd = seed;
-	gbuf_rgb = vec4(1.0, 0.0, 0.0, 1.0);
+	gbuf_rgb = vec4(1.0, 1.0, 1.0, 1.0);
 }
 `,
 
@@ -278,11 +279,11 @@ vec3 potential_gradient(in vec3 X)
 void propagate(inout vec3 X, inout vec3 D)
 {
 	// deflect direction according to lens equation, given current X and D
-	//vec3 grad = potential_gradient(X);
-	//vec3 grad_project = grad - D*dot(grad, D);
-	//D += -2.0*stepDistance*grad_project;
-	//D = normalize(D);
-    X += 0.01*D; //stepDistance*D;
+	vec3 grad = potential_gradient(X);
+	vec3 grad_project = grad - D*dot(grad, D);
+	D += -2.0*stepDistance*grad_project;
+	D = normalize(D);
+    X += stepDistance*D;
 }
 
 
