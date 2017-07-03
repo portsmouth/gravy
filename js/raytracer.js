@@ -65,7 +65,7 @@ var Raytracer = function()
 	var gl = GLU.gl;
 
 	// Initialize textures containing ray states
-	this.raySize = 512;
+	this.raySize = 32;
 	this.enabled = true;
 	this.initStates();
 
@@ -222,85 +222,57 @@ Raytracer.prototype.isEnabled = function()
 Raytracer.prototype.render = function()
 {
 	if (!this.enabled) return;
-
-	var potentialObj = gravy.getPotential();
-	if (potentialObj==null) return;
-	let lengthScale = potentialObj.getScale();
-
-	var current = this.currentState;
-	var next    = 1 - current;
-
-	// trace light beams
-	this.fbo.bind();
 	var gl = GLU.gl;
-	gl.viewport(0, 0, this.raySize, this.raySize);
 
-	// We will write the next state's ray data
-	this.fbo.drawBuffers(4);
-	this.rayStates[next].attach(this.fbo);
-	this.quadVbo.bind();
+	let potentialObj = gravy.getPotential();
+	if (potentialObj==null) return;
+	
+	this.fbo.bind();
 
-	// initialize emitter rays (the beginning of a 'wave')
-	if (this.pathLength == 0)
+	// Clear wavebuffer
+	{	
+		this.quadVbo.bind();
+		this.fbo.drawBuffers(1);
+		gl.viewport(0, 0, this.width, this.height);
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		this.fbo.attachTexture(this.waveBuffer, 0); // write to wavebuffer
+		gl.disable(gl.DEPTH_TEST);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+	}
+
+	// Initialize light wavefront at the source
 	{
+		gl.disable(gl.BLEND);
+		gl.viewport(0, 0, this.raySize, this.raySize);
+		this.fbo.drawBuffers(4);
+		let current = this.currentState;
+		let next = 1 - current;
+		this.rayStates[next].attach(this.fbo);
+		this.quadVbo.bind();
 		this.initProgram.bind(); // Start all rays at emission point(s)
 		this.rayStates[current].rngTex.bind(0); // Read random seed from the current state
 		this.initProgram.uniformTexture("RngData", this.rayStates[current].rngTex);
-
-		// Emitter data -- hard code for now
+		let lengthScale = potentialObj.getScale();
 		this.initProgram.uniform3F("SourcePos", lengthScale * this.sourceDist, 0.0, 0.0);
 		this.initProgram.uniform3F("SourceDir", -1.0, 0.0, 0.0);
 		this.initProgram.uniformF("SourceRadius", lengthScale* this.sourceRadius);
 		this.initProgram.uniformF("SourceBeamAngle", this.sourceBeamAngle);
-
-		// Write emitted ray initial conditions into 'next' state
 		this.quadVbo.draw(this.initProgram, gl.TRIANGLE_FAN);
-
-		// Make this initial state be 'current'
-		current = 1 - current;
-		next    = 1 - next;
-
-		// And we prepare to write into the 'next' state
-		this.fbo.drawBuffers(4);
-		this.rayStates[next].attach(this.fbo);
-
-		this.raysTraced += this.raySize*this.raySize;
+		this.currentState = 1 - this.currentState; // so emitted ray initial conditions are now the 'current' state
 	}
 
-	
-	
-	// Propagate the current wavefront of rays through the potential, generating new ray pos/dir data in 'next' rayStates textures
+	// Prepare raytracing program
 	{
+		let lengthScale = potentialObj.getScale();
 		this.traceProgram.bind();
-		this.rayStates[current].bind(this.traceProgram);       // Use the current state as the initial conditions
-
 		let stepDistance = this.marchDistance * lengthScale / this.maxNumSteps; // in units of scene length scale
 		this.traceProgram.uniformF("lengthScale", potentialObj.getScale()); 
 		this.traceProgram.uniformF("stepDistance", stepDistance); 
-
 		potentialObj.syncProgram(gravy, this.traceProgram);    // upload current potential parameters
-		this.quadVbo.draw(this.traceProgram, gl.TRIANGLE_FAN); // Generate the next ray state
-		this.rayStates[next].detach(this.fbo)
 	}
 
-	// Read this data to draw the next 'wavefront' of rays (i.e. line segments) into the wave buffer
+	// Prepare line drawing program
 	{
-		gl.viewport(0, 0, this.width, this.height);
-		gl.disable(gl.DEPTH_TEST);
-		this.fbo.drawBuffers(1);
-		
-		if (this.pathLength == 0 || this.wavesTraced==0)
-		{
-			// Clear wavebuffer before the first bounce
-			gl.clearColor(0.0, 0.0, 0.0, 1.0);
-
-			this.fbo.attachTexture(this.waveBuffer, 0); // write to wavebuffer
-			gl.clear(gl.COLOR_BUFFER_BIT);
-		}
-
-		// The float radiance channels of all lines are simply added each pass
-		gl.blendFunc(gl.ONE, gl.ONE); // accumulate line segment radiances
-		gl.enable(gl.BLEND);
 		this.lineProgram.bind();
 
 		// Setup projection matrix
@@ -316,52 +288,76 @@ Raytracer.prototype.render = function()
 		var modelViewMatrix = matrixWorldInverse.toArray();
 		var modelViewMatrixLocation = this.lineProgram.getUniformLocation("u_modelViewMatrix");
 		gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
-
-		this.rayStates[current].posTex.bind(0); // read PosDataA = current.posTex
-		this.rayStates[   next].posTex.bind(1); // read PosDataB = next.posTex
-		this.rayStates[current].rgbTex.bind(2); // read current  = current.rgbTex
-		this.lineProgram.uniformTexture("PosDataA", this.rayStates[current].posTex);
-		this.lineProgram.uniformTexture("PosDataB", this.rayStates[   next].posTex);
-		this.lineProgram.uniformTexture("RgbData",  this.rayStates[current].rgbTex);
-
-		this.rayVbo.bind(); // Binds the TexCoord attribute
-		this.fbo.attachTexture(this.waveBuffer, 0); // write to wavebuffer
-		this.rayVbo.draw(this.lineProgram, gl.LINES, this.raySize*this.raySize*2);
-
-		this.pathLength += 1;
 	}
 
-	//if (this.pathLength==this.maxNumSteps || this.wavesTraced<1)
+
+	// Integrate progressively along the wavefront of light rays
+	while (this.pathLength < this.maxNumSteps)
 	{
-		// Add the wavebuffer contents, a complete set of rendered path segments,
-		// into the fluence buffer
+		let current = this.currentState;
+		let next = 1 - current;
+
+		// Propagate the current wavefront of rays through the potential, generating new ray pos/dir data in 'next' rayStates textures
+		{
+			gl.viewport(0, 0, this.raySize, this.raySize);
+			this.fbo.drawBuffers(4);
+			this.rayStates[next].attach(this.fbo);
+			this.quadVbo.bind();
+
+			this.traceProgram.bind();
+			this.rayStates[current].bind(this.traceProgram);       // Use the current state as the initial conditions
+			this.quadVbo.draw(this.traceProgram, gl.TRIANGLE_FAN); // Generate the next ray state
+			this.rayStates[next].detach(this.fbo)
+		}
+
+		// Read this data to draw the next 'wavefront' of rays (i.e. line segments) into the wave buffer
+		{
+			gl.viewport(0, 0, this.width, this.height);
+			gl.disable(gl.DEPTH_TEST);
+			this.fbo.drawBuffers(1);
+
+			// The float radiance channels of all lines are simply added each pass
+			gl.blendFunc(gl.ONE, gl.ONE); // accumulate line segment radiances
+			gl.enable(gl.BLEND);
+			this.lineProgram.bind();
+			this.rayStates[current].posTex.bind(0); // read PosDataA = current.posTex
+			this.rayStates[   next].posTex.bind(1); // read PosDataB = next.posTex
+			this.rayStates[current].rgbTex.bind(2); // read current  = current.rgbTex
+			this.lineProgram.uniformTexture("PosDataA", this.rayStates[current].posTex);
+			this.lineProgram.uniformTexture("PosDataB", this.rayStates[   next].posTex);
+			this.lineProgram.uniformTexture("RgbData",  this.rayStates[current].rgbTex);
+			this.rayVbo.bind(); // Binds the TexCoord attribute
+			this.fbo.attachTexture(this.waveBuffer, 0); // write to wavebuffer
+			this.rayVbo.draw(this.lineProgram, gl.LINES, this.raySize*this.raySize*2);
+			gl.disable(gl.BLEND);
+		}
+
+		// Update raytracing state
+		this.pathLength += 1;
+		this.currentState = next;
+	}
+
+	// Add the wavebuffer contents, a complete set of rendered path segments, into the fluence buffer
+	{
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE, gl.ONE); // accumulate radiances of all line segments from current 'wave' of bounces
-		
 		this.quadVbo.bind();
-
 		this.fbo.attachTexture(this.fluenceBuffer, 0); // write to fluence buffer
 		this.waveBuffer.bind(0);                       // read from wave buffer
 		this.passProgram.bind();
 		this.passProgram.uniformTexture("WaveBuffer", this.waveBuffer);
 		this.quadVbo.draw(this.passProgram, gl.TRIANGLE_FAN);
-
-		if (this.pathLength >= this.maxNumSteps)
-		{
-			console.log('wavesTraced: ', this.wavesTraced);
-			this.wavesTraced += 1;
-			this.pathLength = 0;
-		}
 	}
 
 	this.fbo.unbind();
 	gl.disable(gl.BLEND);
 	
-	// Final composite of normalized fluenceBuffers to window
+	// Final composite of normalized fluence to window
+	this.raysTraced += this.raySize*this.raySize;
 	this.composite();
 
-	// Update raytracing state
-	this.currentState = next;
+	this.wavesTraced += 1;
+	this.pathLength = 0;
 }
 
 

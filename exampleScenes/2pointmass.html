@@ -25,6 +25,7 @@ Potential.prototype.init = function(gravy)
     // Mass distribution parameters
     this.mass = {};
     this.mass.separation = 1.0;
+    
     this.mass.m1 = 1.0; // units?
     this.mass.m2 = 0.5; // units?
 
@@ -65,8 +66,8 @@ Potential.prototype.program = function()
 Potential.prototype.syncProgram = function(gravy, program) 
 { 
     let d = this.mass.separation;
-    program.uniform3Fv("p1", [0,  d, 0]);
-    program.uniform3Fv("p2", [0, -d, 0]);
+    program.uniform3Fv("p1", [ d, 0, 0]);
+    program.uniform3Fv("p2", [-d, 0, 0]);
     program.uniformF("m1", this.mass.m1); 
     program.uniformF("m2", this.mass.m2); 
 }
@@ -76,9 +77,8 @@ Potential.prototype.getURL = function() { return "https://github.com/portsmouth/
 
 Potential.prototype.initGui = function(gui) 
 { 
-    gui.addSlider(this.mass, {name: 'm1', min: 0.0, max: 10.0});
-    gui.addSlider(this.mass, {name: 'm2', min: 0.0, max: 10.0}); 
-    gui.addSlider(this.mass, {name: 'separation', min: 0.0, max: 10.0}); 
+    gui.addSlider(this.mass, {name: 'm1', min: 0.0, max: 1.0});
+    gui.addSlider(this.mass, {name: 'm2', min: 0.0, max: 1.0}); 
 }
 
 </script>
