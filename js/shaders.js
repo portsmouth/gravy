@@ -8,19 +8,45 @@ uniform float invNumRays;
 uniform float exposure;
 uniform float invGamma;
 
+uniform float timeScale; 
+uniform float timePhase;
+uniform vec3 colorA;
+uniform vec3 colorB;
+
 in vec2 vTexCoord;
 out vec4 outputColor;
 
+#define M_PI 3.1415926535897932384626433832795
+
+
+vec3 timeDelayToEmissionColor(float time)
+{
+	float phase = -2.0*M_PI*time/timeScale + timePhase;
+	float S = sin(phase);
+	float C = cos(phase);
+	return colorA*S*S + colorB*C*C;
+}
+
 void main() 
 {
-	vec3 fluence = texture(Fluence, vTexCoord).rgb;
-	vec3 phi = float(invNumRays) * fluence; // normalized fluence
+	// Read normalized fluence and time delay (integrated along primary rays)
+	vec4 image = float(invNumRays) * texture(Fluence, vTexCoord);
+
+	vec3 fluence = image.rgb;
+
+	// @todo: need to compute the average of only the ray *times*
+	//        which cross the pixel. (Not normalized to the global count).
+	//        Probably need a buffer which blends in 1 per ray pixel.
+	float time = image.w / fluence.r;
+
+	// Apply coloring to indicate time delay
+	vec3 emission = fluence * timeDelayToEmissionColor(time);
 
 	// Apply exposure 
 	float gain = pow(2.0, exposure);
-	float r = gain*phi.x; 
-	float g = gain*phi.y; 
-	float b = gain*phi.z;
+	float r = gain*emission.x; 
+	float g = gain*emission.y; 
+	float b = gain*emission.z;
 	
 	// Reinhard tonemap
 	vec3 C = vec3(r/(1.0+r), g/(1.0+g), b/(1.0+b));
@@ -104,7 +130,7 @@ void main()
 	float phiDir = 2.0*M_PI*rand(seed);
 	vec3 dir = normalize(SourceDir + rDir*(u*cos(phiDir) + v*sin(phiDir)));
 	
-	gbuf_pos = vec4(pos, 1.0);
+	gbuf_pos = vec4(pos, 0.0); // time initialized to zero at source
 	gbuf_dir = vec4(dir, 1.0);
 	gbuf_rnd = seed;
 	gbuf_rgb = vec4(1.0, 1.0, 1.0, 1.0);
@@ -128,12 +154,12 @@ void main()
 'line-fragment-shader': `#version 300 es
 precision highp float;
 
-in vec3 vColor;
+in vec4 vColor;
 out vec4 outputColor;
 
 void main() 
 {
-	outputColor = vec4(vColor, 1.0);
+	outputColor = vColor;
 }
 `,
 
@@ -147,20 +173,24 @@ uniform mat4 u_projectionMatrix;
 uniform mat4 u_modelViewMatrix;
 
 in vec3 TexCoord;
-out vec3 vColor;
+out vec4 vColor;
 
 void main()
 {
 	// Textures A and B contain line segment start and end points respectively
 	// (i.e. the geometry defined by this vertex shader is stored in textures)
+	// as well as the proper time per ray
 	vec4 posA = texture(PosDataA, TexCoord.xy);
 	vec4 posB = texture(PosDataB, TexCoord.xy);
 
 	// Line segment vertex position (either posA or posB)
-	vec3 pos = mix(posA.xyz, posB.xyz, TexCoord.z);
+	vec4 pos = mix(posA, posB, TexCoord.z);
+	gl_Position = u_projectionMatrix * u_modelViewMatrix * vec4(pos.xyz, 1.0);
 
-	gl_Position = u_projectionMatrix * u_modelViewMatrix * vec4(pos, 1.0);
-	vColor = texture(RgbData, TexCoord.xy).rgb;
+	// Keep t
+	vec3 rgb = vec3(1.0);
+	float t = pos.w;
+	vColor = vec4(rgb, t);
 }
 `,
 
@@ -273,33 +303,42 @@ vec3 potential_gradient(in vec3 X)
   		        POTENTIAL(yyxp) - POTENTIAL(yyxn)) / epsilon;
 }
 
-
 // propagate each photon beam further along its geodesic by some step distance
 
-void propagate(inout vec3 X, inout vec3 D)
+void propagate(inout vec4 X4, inout vec3 D)
 {
 	// deflect direction according to lens equation, given current X and D
-	vec3 grad = potential_gradient(X);
+	vec3 grad = potential_gradient(X4.xyz);
+
+	// components of gradient orthogonal to ray direction
 	vec3 grad_project = grad - D*dot(grad, D);
-	D += -2.0*stepDistance*grad_project;
+	
+	// bend ray according to lens equation
+	D += -2.0*stepDistance*grad_project; // (the famous Einstein factor of two..)
 	D = normalize(D);
-    X += stepDistance*D;
-}
+
+    // Increment proper time (measured in distance units) along ray, according to:
+    X4.w += stepDistance;            // euclidean term
+    X4.w += -2.0*POTENTIAL(X4.xyz);  // Shapiro delay
+
+    // advance ray in new direction
+    X4.xyz += stepDistance*D;
+}      
 
 
 void main()
 {
-	vec3 X         = texture(PosData, vTexCoord).xyz;
+	vec4 X4        = texture(PosData, vTexCoord);
 	vec3 D         = texture(DirData, vTexCoord).xyz;
-	vec4 rnd       = texture(RngData, vTexCoord); // not needed (yet?)
-	vec4 rgbw      = texture(RgbData, vTexCoord); // not needed (yet?)
+	vec4 rnd       = texture(RngData, vTexCoord);
+	//vec4 rgbw    = texture(RgbData, vTexCoord);
  	
-	propagate(X, D);
+	propagate(X4, D);
 
-	gbuf_pos = vec4(X, 1.0);
+	gbuf_pos = X4;
 	gbuf_dir = vec4(D, 1.0);
 	gbuf_rnd = rnd;
-	gbuf_rgb = rgbw;
+	gbuf_rgb = vec4(1.0);
 }
 `,
 

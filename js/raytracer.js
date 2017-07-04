@@ -78,6 +78,12 @@ var Raytracer = function()
 	this.sourceRadius = 0.001; // in units of scene length scale
 	this.sourceBeamAngle = 135.0;
 
+	this.timeScale = 1.0;
+	this.timePeriodSecs = 2.0;
+	this.time_ms = 0.0;
+	this.colorA = [1.0, 0.0, 0.0];
+	this.colorB = [0.0, 0.0, 1.0];
+
 	// Create a quad VBO for rendering textures
 	this.quadVbo = this.createQuadVbo();
 
@@ -109,6 +115,7 @@ Raytracer.prototype.reset = function()
 	this.wavesTraced = 0;
 	this.raysTraced = 0;
 	this.pathLength = 0;
+	this.time_ms = 0.0;
 
 	this.compileShaders();
 	this.initStates();
@@ -201,6 +208,14 @@ Raytracer.prototype.composite = function()
 	this.compProgram.uniformF("exposure", this.exposure);
 	this.compProgram.uniformF("invGamma", 1.0/this.gamma);
 	
+	let potentialObj = gravy.getPotential();
+	if (potentialObj==null) return;
+	let lengthScale = potentialObj.getScale();
+	this.compProgram.uniformF("timeScale", lengthScale * this.timeScale);
+	this.compProgram.uniformF("timePhase", 2.0*Math.PI*this.time_ms/(1000.0*this.timePeriodSecs)); 
+	this.compProgram.uniform3Fv("colorA", this.colorA);
+	this.compProgram.uniform3Fv("colorB", this.colorB);
+
 	gl.enable(gl.BLEND);
 	gl.blendEquation(gl.FUNC_ADD);
 	gl.blendFunc(gl.ONE, gl.ONE);
@@ -224,8 +239,11 @@ Raytracer.prototype.render = function()
 	if (!this.enabled) return;
 	var gl = GLU.gl;
 
+	var timer_start = performance.now();
+
 	let potentialObj = gravy.getPotential();
 	if (potentialObj==null) return;
+	let lengthScale = potentialObj.getScale();
 	
 	this.fbo.bind();
 
@@ -244,19 +262,24 @@ Raytracer.prototype.render = function()
 	{
 		gl.disable(gl.BLEND);
 		gl.viewport(0, 0, this.raySize, this.raySize);
+
 		this.fbo.drawBuffers(4);
+		
 		let current = this.currentState;
 		let next = 1 - current;
+		
 		this.rayStates[next].attach(this.fbo);
 		this.quadVbo.bind();
 		this.initProgram.bind(); // Start all rays at emission point(s)
 		this.rayStates[current].rngTex.bind(0); // Read random seed from the current state
 		this.initProgram.uniformTexture("RngData", this.rayStates[current].rngTex);
+		
 		let lengthScale = potentialObj.getScale();
 		this.initProgram.uniform3F("SourcePos", lengthScale * this.sourceDist, 0.0, 0.0);
 		this.initProgram.uniform3F("SourceDir", -1.0, 0.0, 0.0);
 		this.initProgram.uniformF("SourceRadius", lengthScale* this.sourceRadius);
 		this.initProgram.uniformF("SourceBeamAngle", this.sourceBeamAngle);
+		
 		this.quadVbo.draw(this.initProgram, gl.TRIANGLE_FAN);
 		this.currentState = 1 - this.currentState; // so emitted ray initial conditions are now the 'current' state
 	}
@@ -297,7 +320,7 @@ Raytracer.prototype.render = function()
 		let current = this.currentState;
 		let next = 1 - current;
 
-		// Propagate the current wavefront of rays through the potential, generating new ray pos/dir data in 'next' rayStates textures
+		// Propagate the current set of rays through the potential, generating new ray pos/dir data in 'next' rayStates textures
 		{
 			gl.viewport(0, 0, this.raySize, this.raySize);
 			this.fbo.drawBuffers(4);
@@ -358,6 +381,10 @@ Raytracer.prototype.render = function()
 
 	this.wavesTraced += 1;
 	this.pathLength = 0;
+
+	var timer_end = performance.now();
+	var frame_time_ms = (timer_end - timer_start);
+	this.time_ms += frame_time_ms;
 }
 
 

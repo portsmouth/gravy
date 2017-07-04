@@ -55,7 +55,7 @@ void main()
 	float phiDir = 2.0*M_PI*rand(seed);
 	vec3 dir = normalize(SourceDir + rDir*(u*cos(phiDir) + v*sin(phiDir)));
 	
-	gbuf_pos = vec4(pos, 1.0);
+	gbuf_pos = vec4(pos, 0.0); // time initialized to zero at source
 	gbuf_dir = vec4(dir, 1.0);
 	gbuf_rnd = seed;
 	gbuf_rgb = vec4(1.0, 1.0, 1.0, 1.0);

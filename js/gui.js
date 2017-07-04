@@ -59,12 +59,52 @@ GUI.prototype.createRaytracerSettings = function()
 
 	this.rendererFolder.add(raytracer, 'maxNumSteps', 4, 1024).onChange( function(value) { raytracer.maxNumSteps = Math.floor(value); raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'raySize', 4, 1024).onChange( function(value) { raytracer.raySize = Math.floor(value); raytracer.reset(true); } );
-	this.rendererFolder.add(raytracer, 'marchDistance', 0.0, 100.0).onChange( function(value) { raytracer.reset(true); } );
+	this.rendererFolder.add(raytracer, 'marchDistance', 0.0, 1000.0).onChange( function(value) { raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'sourceDist', 0.0, 100.0).onChange( function(value) { raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'sourceRadius', 0.0, 1.0).onChange( function(value) { raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'sourceBeamAngle', 0.0, 180.0).onChange( function(value) { raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'exposure', -10.0, 10.0);
 	this.rendererFolder.add(raytracer, 'gamma', 0.0, 3.0);
+	this.rendererFolder.add(raytracer, 'timeScale', 0.0, 1000.0).onChange( function(value) { raytracer.reset(true); } );
+	this.rendererFolder.add(raytracer, 'timePeriodSecs', 0.0, 10.0).onChange( function(value) { raytracer.reset(true); } );
+
+	this.rendererFolder.colorA = [raytracer.colorA[0]*255.0, raytracer.colorA[1]*255.0, raytracer.colorA[2]*255.0];
+	let itemA = this.rendererFolder.addColor(this.rendererFolder, 'colorA');
+	itemA.onChange( function(c) {
+								if (typeof c==='string' || c instanceof String)
+								{
+									var color = hexToRgb(c);
+									raytracer.colorA[0] = color.r/255.0;
+									raytracer.colorA[1] = color.g/255.0;
+									raytracer.colorA[2] = color.b/255.0;
+								}
+								else
+								{
+									raytracer.colorA[0] = c[0]/255.0;
+									raytracer.colorA[1] = c[1]/255.0;
+									raytracer.colorA[2] = c[2]/255.0;
+								}
+								raytracer.reset(true);
+							} );
+
+	this.rendererFolder.colorB = [raytracer.colorB[0]*255.0, raytracer.colorB[1]*255.0, raytracer.colorB[2]*255.0];
+	let itemB = this.rendererFolder.addColor(this.rendererFolder, 'colorB');
+	itemB.onChange( function(c) {
+								if (typeof c==='string' || c instanceof String)
+								{
+									var color = hexToRgb(c);
+									raytracer.colorB[0] = color.r/255.0;
+									raytracer.colorB[1] = color.g/255.0;
+									raytracer.colorB[2] = color.b/255.0;
+								}
+								else
+								{
+									raytracer.colorB[0] = c[0] / 255.0;
+									raytracer.colorB[1] = c[1] / 255.0;
+									raytracer.colorB[2] = c[2] / 255.0;
+								}
+								raytracer.reset(true);
+							} );
 
 	this.gui.remember(this.raytracerSettings);
 	this.rendererFolder.close();

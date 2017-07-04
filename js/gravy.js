@@ -160,17 +160,20 @@ Gravy.prototype.showGUI = function(show)
 
 Gravy.prototype.initPotential = function()
 {
+	if (this.potentialObj == null) return;
 	if (typeof this.potentialObj.program == "undefined") GLU.fail('Potential must define a "program" function!');
 
-	this.minScale = 1.0e-4;
-	this.maxScale = 1.0e2;
+	let lengthScale = this.potentialObj.getScale();
+
+	this.minScale = 1.0e-4 * lengthScale;
+	this.maxScale = 1.0e3 * lengthScale;
 	if (typeof this.potentialObj.getMinScale !== "undefined") this.minScale = this.potentialObj.getMinScale();
 	if (typeof this.potentialObj.getMaxScale !== "undefined") this.maxScale = this.potentialObj.getMaxScale();
 	this.minScale = Math.max(1.0e-6, this.minScale);
-	this.maxScale = Math.min(1.0e6, this.maxScale); 
+	this.maxScale = Math.min(1.0e20, this.maxScale); 
 
 	// Set initial default camera position and target based on max scale
-	let po = 0.01*this.maxScale; // @todo: should be e.g. 10.0 * this.sceneScale
+	let po = lengthScale; // @todo: should be e.g. 10.0 * this.sceneScale
 	this.camera.position.set(po, po, po);
 	this.camControls.target.set(0.0, 0.0, 0.0);
 
