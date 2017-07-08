@@ -1,0 +1,161 @@
+   
+<body onload="onLoad();">
+
+<script src="../js/compiled/gravy.min.js"></script>
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*               gravitational potential definition                  */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script>
+
+function Potential() {}
+Potential.prototype.init = function(gravy)
+{
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let raytracer  = gravy.getRaytracer();
+    let camera    = gravy.getCamera();
+    let controls  = gravy.getControls();
+        
+    // Mass distribution parameters
+    this.mass = {};
+    this.mass.frequency = 0.4510218463706836;
+    this.mass.amplitude = 0.1127554615926709;
+    this.mass.gain = 0.13530655391120508;
+    this.mass.lacunarity = 1.533474277660324;
+    this.mass.noiseIterations = 6;
+        
+    gravy.showGUI(true);
+
+    /** Camera settings **/
+    gravy.fov = undefined;
+    camera.up.set(0, 1, 0);
+    camera.position.set(-47.03050823386903, 45.62820066890139, 27.399163388483444);
+    controls.target.set(-28.225461055681908, 7.7045242799416656, -1.305712776582756);
+
+    /** Raytracer settings **/
+    raytracer.raySize = 128;
+    raytracer.maxNumSteps = 1024;
+    raytracer.marchDistance = 150.0;
+    raytracer.exposure = 6.913319238900634;
+    raytracer.gamma = 1.9957716701902748;
+    raytracer.sourceDist = 12.4031007751938;
+    raytracer.sourceRadius = 0;
+    raytracer.sourceBeamAngle = 2.029598308668076;
+    raytracer.timeScale = 6.765327695560254;
+    raytracer.timePeriodSecs = 10;
+    raytracer.colorA = [0.4898116109188773, 0.6837415473686592, 0.9607843137254902];
+    raytracer.colorB = [1, 1, 1];
+
+    /******* copy-pasted console output on 'O', end *******/
+}
+
+Potential.prototype.initGenerator = function()
+{
+    return `
+// Mass distribution parameters
+this.mass = {};
+this.mass.frequency = ${this.mass.frequency};
+this.mass.amplitude = ${this.mass.amplitude};
+this.mass.gain = ${this.mass.gain};
+this.mass.lacunarity = ${this.mass.lacunarity};
+this.mass.noiseIterations = ${this.mass.noiseIterations};
+    `; 
+}
+
+
+Potential.prototype.getScale = function()
+{
+    return 1.0;
+}
+
+Potential.prototype.program = function()
+{
+    let noiseIterations = this.mass.noiseIterations;
+
+    return `
+    uniform float freq;
+    uniform float amp;
+    uniform float gain; 
+    uniform float lacunarity; 
+
+    float hash12(vec2 p) {
+        float h = dot(p,vec2(127.1,311.7)); 
+        return fract(sin(h)*437.545);
+    }
+
+    float noise3d(in vec3 X) {
+        vec3 i = floor(X);
+        vec3 f = fract(X);  
+        vec3 u = f*f*(3.0-2.0*f);
+        vec2 ii = i.xy + i.z * vec2(5.0);
+        float a = hash12( ii + vec2(0.0,0.0) );
+        float b = hash12( ii + vec2(1.0,0.0) );    
+        float c = hash12( ii + vec2(0.0,1.0) );
+        float d = hash12( ii + vec2(1.0,1.0) ); 
+        float v1 = mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+        ii += vec2(5.0);
+        a = hash12( ii + vec2(0.0,0.0) );
+        b = hash12( ii + vec2(1.0,0.0) );    
+        c = hash12( ii + vec2(0.0,1.0) );
+        d = hash12( ii + vec2(1.0,1.0) );
+        float v2 = mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+        return max(mix(v1,v2,u.z),0.0);
+    }
+
+    float fbm3d(vec3 X, float _freq, float _amp, float _gain, float _lacunarity) 
+    {    
+        float noise = 0.0;    
+        float a = _amp;
+        const int iter = int(${noiseIterations});
+        vec3 P = X * _freq;
+        for(int i=0; i<iter; i++) 
+        {
+            noise += a * noise3d(P);
+            a *= _gain;
+            P *= _lacunarity;
+        }
+        return noise;
+    }
+
+    float POTENTIAL(in vec3 X)
+    {
+        return fbm3d(X, freq, amp, gain, lacunarity);
+    }
+    `;
+}
+
+Potential.prototype.syncProgram = function(gravy, program) 
+{ 
+    program.uniformF("freq", this.mass.frequency);  
+    program.uniformF("amp", this.mass.amplitude);  
+    program.uniformF("gain", this.mass.gain);  
+    program.uniformF("lacunarity", this.mass.lacunarity);
+}
+
+Potential.prototype.getName = function() { return 'Noise potential'; }
+Potential.prototype.getURL = function() { return "https://github.com/portsmouth/snelly/blob/master/exampleScenes/helloWorld.html"; }
+
+Potential.prototype.initGui = function(gui) 
+{ 
+    gui.addSlider(this.mass, {name: 'frequency', min: 0.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'amplitude', min: 0.0, max: 1.0});
+    gui.addSlider(this.mass, {name: 'gain', min: 0.0, max: 1.0});
+    gui.addSlider(this.mass, {name: 'lacunarity', min: 0.0, max: 4.0});
+    gui.addSlider(this.mass, {name: 'noiseIterations', min: 1, max: 8, step: 1, recompile: true}); 
+}
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+function onLoad() { gravy = new Gravy(new Potential()); animateLoop(); }
+function animateLoop() { gravy.render(); window.requestAnimationFrame(animateLoop); }
+</script>
+
+</body>

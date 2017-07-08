@@ -270,6 +270,7 @@ uniform sampler2D RgbData;
 
 uniform float lengthScale;
 uniform float stepDistance;
+uniform bool includeShapiroDelay;
 
 layout(location = 0) out vec4 gbuf_pos;
 layout(location = 1) out vec4 gbuf_dir;
@@ -304,7 +305,6 @@ vec3 potential_gradient(in vec3 X)
 }
 
 // propagate each photon beam further along its geodesic by some step distance
-
 void propagate(inout vec4 X4, inout vec3 D)
 {
 	// deflect direction according to lens equation, given current X and D
@@ -319,7 +319,8 @@ void propagate(inout vec4 X4, inout vec3 D)
 
     // Increment proper time (measured in distance units) along ray, according to:
     X4.w += stepDistance;            // euclidean term
-    X4.w += -2.0*POTENTIAL(X4.xyz);  // Shapiro delay
+    if (includeShapiroDelay)
+	    X4.w += -2.0*POTENTIAL(X4.xyz);  // Shapiro delay
 
     // advance ray in new direction
     X4.xyz += stepDistance*D;

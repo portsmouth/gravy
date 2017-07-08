@@ -57,7 +57,7 @@ GUI.prototype.createRaytracerSettings = function()
 	var raytracer = gravy.getRaytracer();
 	var camera = gravy.getCamera();
 
-	this.rendererFolder.add(raytracer, 'maxNumSteps', 4, 1024).onChange( function(value) { raytracer.maxNumSteps = Math.floor(value); raytracer.reset(true); } );
+	this.rendererFolder.add(raytracer, 'maxNumSteps', 4, 4096).onChange( function(value) { raytracer.maxNumSteps = Math.floor(value); raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'raySize', 4, 1024).onChange( function(value) { raytracer.raySize = Math.floor(value); raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'marchDistance', 0.0, 1000.0).onChange( function(value) { raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'sourceDist', 0.0, 100.0).onChange( function(value) { raytracer.reset(true); } );
@@ -65,8 +65,9 @@ GUI.prototype.createRaytracerSettings = function()
 	this.rendererFolder.add(raytracer, 'sourceBeamAngle', 0.0, 180.0).onChange( function(value) { raytracer.reset(true); } );
 	this.rendererFolder.add(raytracer, 'exposure', -10.0, 10.0);
 	this.rendererFolder.add(raytracer, 'gamma', 0.0, 3.0);
-	this.rendererFolder.add(raytracer, 'timeScale', 0.0, 1000.0).onChange( function(value) { raytracer.reset(true); } );
-	this.rendererFolder.add(raytracer, 'timePeriodSecs', 0.0, 10.0).onChange( function(value) { raytracer.reset(true); } );
+	this.rendererFolder.add(raytracer, 'timeScale', 0.0, 100.0);
+	this.rendererFolder.add(raytracer, 'timePeriodSecs', 0.0, 10.0);
+	this.rendererFolder.add(raytracer, 'includeShapiroDelay').onChange( function(value) { raytracer.reset(true); } );
 
 	this.rendererFolder.colorA = [raytracer.colorA[0]*255.0, raytracer.colorA[1]*255.0, raytracer.colorA[2]*255.0];
 	let itemA = this.rendererFolder.addColor(this.rendererFolder, 'colorA');
@@ -84,7 +85,6 @@ GUI.prototype.createRaytracerSettings = function()
 									raytracer.colorA[1] = c[1]/255.0;
 									raytracer.colorA[2] = c[2]/255.0;
 								}
-								raytracer.reset(true);
 							} );
 
 	this.rendererFolder.colorB = [raytracer.colorB[0]*255.0, raytracer.colorB[1]*255.0, raytracer.colorB[2]*255.0];
@@ -103,7 +103,6 @@ GUI.prototype.createRaytracerSettings = function()
 									raytracer.colorB[1] = c[1] / 255.0;
 									raytracer.colorB[2] = c[2] / 255.0;
 								}
-								raytracer.reset(true);
 							} );
 
 	this.gui.remember(this.raytracerSettings);
@@ -115,9 +114,9 @@ GUI.prototype.createMatterSettings = function()
 	var potentialObj = gravy.getPotential();
 	if (typeof potentialObj.initGui !== "undefined") 
 	{
-		this.sceneFolder = this.gui.addFolder('Matter');
+		this.userFolder = this.gui.addFolder('Matter');
 		potentialObj.initGui(this);
-		this.sceneFolder.open();
+		this.userFolder.open();
 		this.gui.remember(this.sceneSettings);
 	}
 }
@@ -140,7 +139,7 @@ GUI.prototype.createMatterSettings = function()
  */
 GUI.prototype.addSlider = function(parameters, param, folder=undefined)
 {
-	let _f = this.sceneFolder;
+	let _f = this.userFolder;
 	if (typeof folder !== 'undefined') _f = folder;
 	var name = param.name;
 	var min  = param.min;
@@ -167,7 +166,7 @@ GUI.prototype.addSlider = function(parameters, param, folder=undefined)
 */
 GUI.prototype.addColor = function(parameters, name, scale=1.0, folder=undefined)
 {
-	let _f = this.sceneFolder;
+	let _f = this.userFolder;
 	if (typeof folder !== 'undefined') _f = folder;
 	_f[name] = [parameters[name][0]*255.0, parameters[name][1]*255.0, parameters[name][2]*255.0];
 	var item = _f.addColor(_f, name);
@@ -205,9 +204,13 @@ GUI.prototype.getGUI = function()
 	return this.gui;
 }
 
-GUI.prototype.getSceneFolder = function()
+/**
+* Access to dat.GUI object folder object containing user UI parameters
+* @returns {dat.GUI}
+*/
+GUI.prototype.getUserFolder = function()
 {
-	return this.sceneFolder;
+	return this.userFolder;
 }
 
 

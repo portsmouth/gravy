@@ -58,29 +58,46 @@ RayState.prototype.detach = function(fbo)
 	fbo.detachTexture(3);
 }
 
-
+/** 
+* Interface to the raytracer.
+* @constructor 
+* @property {number} [maxNumSteps=256]          - maximum number of raymarching steps per path segment
+* @property {number} [raySize=128]              - number of rays per wavefront is the square of this
+* @property {number} [marchDistance=100.0]      - the total distance travelled by each ray
+* @property {number} [sourceDist=10.0]          - distance of light source (along positive x axis)
+* @property {number} [sourceRadius=0.001]       - radius of light source disk
+* @property {number} [sourceBeamAngle=2.2]      - opening angle of light source beam (degrees)
+* @property {number} [exposure=4.5]             - image exposure, on a log scale
+* @property {number} [gamma=2.2]                - image gamma correction
+* @property {number} [timeScale=2.2]            - delay timescale over which color cycles
+* @property {number} [timePeriodSecs=2.2]       - real time (in seconds) over which the color cycles
+* @property {number} [includeShapiroDelay=true] - whether to add the Shapiro term to the time delay
+* @property {Array}  colorA                     - color to cycle to on even phase of the time delay
+* @property {Array}  colorB                     - color to cycle to on odd phase of the time delay
+*/
 var Raytracer = function()
 {
 	this.gl = GLU.gl;
 	var gl = GLU.gl;
 
 	// Initialize textures containing ray states
-	this.raySize = 32;
+	this.raySize = 128;
 	this.enabled = true;
 	this.initStates();
 
-	this.maxNumSteps = 64;
-	this.marchDistance = 20.0; // in units of scene length scale
+	this.maxNumSteps = 256;
+	this.marchDistance = 100.0;
 	this.exposure = 3.0;
 	this.gamma = 2.2;
 
-	this.sourceDist = 10.0;    // in units of scene length scale
-	this.sourceRadius = 0.001; // in units of scene length scale
+	this.sourceDist = 10.0;    // along positive x axis
+	this.sourceRadius = 0.001;
 	this.sourceBeamAngle = 135.0;
 
 	this.timeScale = 1.0;
 	this.timePeriodSecs = 2.0;
 	this.time_ms = 0.0;
+	this.includeShapiroDelay = true;
 	this.colorA = [1.0, 0.0, 0.0];
 	this.colorB = [0.0, 0.0, 1.0];
 
@@ -93,6 +110,7 @@ var Raytracer = function()
 	// Initialize GL
 	this.fbo = new GLU.RenderTarget();
 }
+
 
 
 Raytracer.prototype.createQuadVbo = function()
@@ -210,8 +228,7 @@ Raytracer.prototype.composite = function()
 	
 	let potentialObj = gravy.getPotential();
 	if (potentialObj==null) return;
-	let lengthScale = potentialObj.getScale();
-	this.compProgram.uniformF("timeScale", lengthScale * this.timeScale);
+	this.compProgram.uniformF("timeScale", this.timeScale);
 	this.compProgram.uniformF("timePhase", 2.0*Math.PI*this.time_ms/(1000.0*this.timePeriodSecs)); 
 	this.compProgram.uniform3Fv("colorA", this.colorA);
 	this.compProgram.uniform3Fv("colorB", this.colorB);
@@ -243,8 +260,7 @@ Raytracer.prototype.render = function()
 
 	let potentialObj = gravy.getPotential();
 	if (potentialObj==null) return;
-	let lengthScale = potentialObj.getScale();
-	
+
 	this.fbo.bind();
 
 	// Clear wavebuffer
@@ -274,10 +290,9 @@ Raytracer.prototype.render = function()
 		this.rayStates[current].rngTex.bind(0); // Read random seed from the current state
 		this.initProgram.uniformTexture("RngData", this.rayStates[current].rngTex);
 		
-		let lengthScale = potentialObj.getScale();
-		this.initProgram.uniform3F("SourcePos", lengthScale * this.sourceDist, 0.0, 0.0);
+		this.initProgram.uniform3F("SourcePos", this.sourceDist, 0.0, 0.0);
 		this.initProgram.uniform3F("SourceDir", -1.0, 0.0, 0.0);
-		this.initProgram.uniformF("SourceRadius", lengthScale* this.sourceRadius);
+		this.initProgram.uniformF("SourceRadius", this.sourceRadius);
 		this.initProgram.uniformF("SourceBeamAngle", this.sourceBeamAngle);
 		
 		this.quadVbo.draw(this.initProgram, gl.TRIANGLE_FAN);
@@ -286,12 +301,20 @@ Raytracer.prototype.render = function()
 
 	// Prepare raytracing program
 	{
-		let lengthScale = potentialObj.getScale();
 		this.traceProgram.bind();
-		let stepDistance = this.marchDistance * lengthScale / this.maxNumSteps; // in units of scene length scale
-		this.traceProgram.uniformF("lengthScale", potentialObj.getScale()); 
+		let stepDistance = this.marchDistance / this.maxNumSteps;
+		let lengthScale = 1.0;
+		if (typeof potentialObj.getScale !== "undefined") 
+		{
+			lengthScale = potentialObj.getScale();
+		}
+		this.traceProgram.uniformF("lengthScale", lengthScale); 
 		this.traceProgram.uniformF("stepDistance", stepDistance); 
-		potentialObj.syncProgram(gravy, this.traceProgram);    // upload current potential parameters
+		if (typeof potentialObj.syncProgram !== "undefined") 
+		{
+			potentialObj.syncProgram(gravy, this.traceProgram);    // upload current potential parameters
+		}
+		this.traceProgram.uniformI("includeShapiroDelay", Boolean(this.includeShapiroDelay) ? 1 : 0);
 	}
 
 	// Prepare line drawing program

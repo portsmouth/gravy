@@ -158,6 +158,53 @@ Gravy.prototype.showGUI = function(show)
 
 
 
+Gravy.prototype.dumpScene = function()
+{
+	let camera = this.camera;
+	let controls = this.camControls;
+	let raytracer = this.raytracer;
+
+	var code = `/******* copy-pasted console output on 'O', begin *******/\n`;
+	code += `
+let raytracer  = gravy.getRaytracer();
+let camera    = gravy.getCamera();
+let controls  = gravy.getControls();
+	`;
+
+	if (typeof this.potentialObj.initGenerator !== "undefined") 
+	{
+		code += this.potentialObj.initGenerator();
+	}
+	
+	code += this.guiVisible ? `\ngravy.showGUI(true);\n` : `\ngravy.showGUI(false);\n`;
+
+	code += `
+/** Camera settings **/
+gravy.fov = ${gravy.fov};
+camera.up.set(${camera.up.x}, ${camera.up.y}, ${camera.up.z});
+camera.position.set(${camera.position.x}, ${camera.position.y}, ${camera.position.z});
+controls.target.set(${controls.target.x}, ${controls.target.y}, ${controls.target.z});
+
+/** Raytracer settings **/
+raytracer.raySize = ${raytracer.raySize};
+raytracer.maxNumSteps = ${raytracer.maxNumSteps};
+raytracer.marchDistance = ${raytracer.marchDistance};
+raytracer.exposure = ${raytracer.exposure};
+raytracer.gamma = ${raytracer.gamma};
+raytracer.sourceDist = ${raytracer.sourceDist};
+raytracer.sourceRadius = ${raytracer.sourceRadius};
+raytracer.sourceBeamAngle = ${raytracer.sourceBeamAngle};
+raytracer.timeScale = ${raytracer.timeScale};
+raytracer.timePeriodSecs = ${raytracer.timePeriodSecs};
+raytracer.colorA = [${raytracer.colorA[0]}, ${raytracer.colorA[1]}, ${raytracer.colorA[2]}];
+raytracer.colorB = [${raytracer.colorB[0]}, ${raytracer.colorB[1]}, ${raytracer.colorB[2]}];
+
+/******* copy-pasted console output on 'O', end *******/
+	`;
+
+	return code;
+}
+
 Gravy.prototype.initPotential = function()
 {
 	if (this.potentialObj == null) return;
@@ -402,6 +449,11 @@ Gravy.prototype.onkeydown = function(event)
 			gravy.getGUI().toggleHide();
 			break;
 		
+		case 79: // O key: output scene settings code to console
+			let code = this.dumpScene();
+			console.log(code);
+			break;
+
 		case 80: // P key: save current image to disk
 		{
    			var w = window.open('about:blank', 'Gravy screenshot');

@@ -1,0 +1,133 @@
+   
+<body onload="onLoad();">
+
+<script src="../js/compiled/gravy.min.js"></script>
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*               gravitational potential definition                  */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script>
+
+function Potential() {}
+Potential.prototype.init = function(gravy)
+{
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let raytracer  = gravy.getRaytracer();
+    let camera    = gravy.getCamera();
+    let controls  = gravy.getControls();
+        
+    // Mass distribution parameters
+    this.mass = {};
+    this.mass.perpoffset = 0;
+    this.mass.mass = 1.6913319238900635;
+    this.mass.disk_radius = 2.3678646934460885;
+    this.mass.disk_height = 0.3382663847780127;
+        
+    gravy.showGUI(true);
+
+    /** Camera settings **/
+    gravy.fov = undefined;
+    camera.up.set(0, 1, 0);
+    camera.position.set(-5.444842866091144, 2.316668956767752, 5.534439666917207);
+    controls.target.set(4.356696833017101, -1.8423671514731266, -0.3465825866519526);
+
+    /** Raytracer settings **/
+    raytracer.raySize = 200;
+    raytracer.maxNumSteps = 256;
+    raytracer.marchDistance = 40;
+    raytracer.exposure = 6.462297392529951;
+    raytracer.gamma = 1.623678646934461;
+    raytracer.sourceDist = 15.785764622973925;
+    raytracer.sourceRadius = 0;
+    raytracer.sourceBeamAngle = 87.27272727272728;
+    raytracer.timeScale = 11.27554615926709;
+    raytracer.timePeriodSecs = 2.255109231853418;
+    raytracer.colorA = [1, 1, 1];
+    raytracer.colorB = [1, 1, 1];
+
+    /******* copy-pasted console output on 'O', end *******/
+}
+
+Potential.prototype.initGenerator = function()
+{
+    return `
+// Mass distribution parameters
+this.mass = {};
+this.mass.perpoffset = ${this.mass.perpoffset};
+this.mass.mass = ${this.mass.mass};
+this.mass.disk_radius = ${this.mass.disk_radius};
+this.mass.disk_height = ${this.mass.disk_height};
+    `; 
+}
+
+
+Potential.prototype.getScale = function()
+{
+    return 1.0;
+}
+
+Potential.prototype.program = function()
+{
+    /**
+    * Note, potential is in units of c^2, and the masses and distances defined in units of
+      the Schwarschild radius of some relevant mass scale (e.g. the total mass of the system).
+    */
+
+    return `
+    uniform vec3 position;
+    uniform float mass;
+    uniform float disk_radius;
+    uniform float disk_height;
+
+    float POTENTIAL_disk(in vec3 X, in vec3 P, float M, float a, float h)
+    {
+        // Miyamoto-Nagai potential
+        vec3 XP = X - P;
+        float r2 = XP.x*XP.x + XP.z*XP.z;
+        float rh = a + sqrt(XP.y*XP.y + h*h);
+        return -M / sqrt(r2 + rh*rh);
+    }
+
+    float POTENTIAL(in vec3 X)
+    {
+        return POTENTIAL_disk(X, position, mass, disk_radius, disk_height);
+    }
+    `;
+}
+
+Potential.prototype.syncProgram = function(gravy, program) 
+{ 
+    let d = this.mass.perpoffset;
+    program.uniform3Fv("position", [0, d, 0]);
+    program.uniformF("mass", this.mass.mass); 
+    program.uniformF("disk_radius", this.mass.disk_radius);
+    program.uniformF("disk_height", this.mass.disk_height);
+    program.uniformF("perpoffset", this.mass.perpoffset); 
+}
+
+Potential.prototype.getName = function() { return 'Disk distribution'; }
+Potential.prototype.getURL = function() { return "https://github.com/portsmouth/snelly/blob/master/exampleScenes/helloWorld.html"; }
+
+Potential.prototype.initGui = function(gui) 
+{ 
+    gui.addSlider(this.mass, {name: 'mass', min: 0.0, max: 2.0});
+    gui.addSlider(this.mass, {name: 'disk_radius', min: 0.0, max: 30.0});
+    gui.addSlider(this.mass, {name: 'disk_height', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'perpoffset', min: -10.0, max: 10.0}); 
+}
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+function onLoad() { gravy = new Gravy(new Potential()); animateLoop(); }
+function animateLoop() { gravy.render(); window.requestAnimationFrame(animateLoop); }
+</script>
+
+</body>

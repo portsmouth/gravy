@@ -1,0 +1,261 @@
+   
+<body onload="onLoad();">
+
+<script src="../js/compiled/gravy.min.js"></script>
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*               gravitational potential definition                  */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script>
+
+function Potential() {}
+Potential.prototype.init = function(gravy)
+{
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let raytracer  = gravy.getRaytracer();
+    let camera    = gravy.getCamera();
+    let controls  = gravy.getControls();
+        
+    // Mass distribution parameters
+    this.mass = {};
+    this.mass.profiles = ['point', 'uniform_sphere', 'isothermal_sphere', 'Plummer', 'NFW', 'Hernquist', 'Jaffe'];
+    this.mass.profile1 = 'Jaffe';
+    this.mass.profile2 = 'Hernquist';
+    this.mass.profile3 = 'Plummer';
+    this.mass.profile4 = 'Plummer';
+    this.mass.mass1 = 2.9316420014094433;
+    this.mass.mass2 = 4.679351656095842;
+    this.mass.mass3 = 2.762508809020437;
+    this.mass.mass4 = 2.9316420014094433;
+    this.mass.radius1 = 3.4954193093727977;
+    this.mass.radius2 = 3.83368569415081;
+    this.mass.radius3 = 1.6913319238900635;
+    this.mass.radius4 = 1.5785764622973923;
+    this.mass.axisoffset1 = -8.421423537702609;
+    this.mass.axisoffset2 = -1.20507399577167;
+    this.mass.axisoffset3 = -8.421423537702609;
+    this.mass.axisoffset4 = 0.14799154334038;
+    this.mass.Yoffset1 = -10;
+    this.mass.Yoffset2 = -0.7540521494009873;
+    this.mass.Yoffset3 = -10;
+    this.mass.Yoffset4 = -9.548978153629317;
+    this.mass.Zoffset1 = -10;
+    this.mass.Zoffset2 = -5.489781536293164;
+    this.mass.Zoffset3 = -1.4305849189570115;
+    this.mass.Zoffset4 = 4.207188160676534;
+        
+    gravy.showGUI(true);
+
+    /** Camera settings **/
+    gravy.fov = undefined;
+    camera.up.set(0, 1, 0);
+    camera.position.set(-6.436242800209598, 46.99680420054895, 93.20752256275753);
+    controls.target.set(30.75701980114554, -6.870143820130025, 11.26979972512107);
+
+    /** Raytracer settings **/
+    raytracer.raySize = 119;
+    raytracer.maxNumSteps = 256;
+    raytracer.marchDistance = 202.9598308668076;
+    raytracer.exposure = 6.011275546159268;
+    raytracer.gamma = 1.4883720930232558;
+    raytracer.sourceDist = 100;
+    raytracer.sourceRadius = 0;
+    raytracer.sourceBeamAngle = 109.59830866807611;
+    raytracer.timeScale = 11.27554615926709;
+    raytracer.timePeriodSecs = 2.255109231853418;
+    raytracer.colorA = [1, 1, 1];
+    raytracer.colorB = [1, 1, 1];
+
+    /******* copy-pasted console output on 'O', end *******/
+}
+
+Potential.prototype.initGenerator = function()
+{
+    return `
+// Mass distribution parameters
+this.mass = {};
+this.mass.profiles = ['point', 'uniform_sphere', 'isothermal_sphere', 'Plummer', 'NFW', 'Hernquist', 'Jaffe'];
+this.mass.profile1 = '${this.mass.profile1}';
+this.mass.profile2 = '${this.mass.profile2}';
+this.mass.profile3 = '${this.mass.profile3}';
+this.mass.profile4 = '${this.mass.profile4}';
+this.mass.mass1 = ${this.mass.mass1};
+this.mass.mass2 = ${this.mass.mass2};
+this.mass.mass3 = ${this.mass.mass3};
+this.mass.mass4 = ${this.mass.mass4};
+this.mass.radius1 = ${this.mass.radius1};
+this.mass.radius2 = ${this.mass.radius2};
+this.mass.radius3 = ${this.mass.radius3};
+this.mass.radius4 = ${this.mass.radius4};
+this.mass.axisoffset1 = ${this.mass.axisoffset1};
+this.mass.axisoffset2 = ${this.mass.axisoffset2};
+this.mass.axisoffset3 = ${this.mass.axisoffset3};
+this.mass.axisoffset4 = ${this.mass.axisoffset4};
+this.mass.Yoffset1 = ${this.mass.Yoffset1};
+this.mass.Yoffset2 = ${this.mass.Yoffset2};
+this.mass.Yoffset3 = ${this.mass.Yoffset3};
+this.mass.Yoffset4 = ${this.mass.Yoffset4};
+this.mass.Zoffset1 = ${this.mass.Zoffset1};
+this.mass.Zoffset2 = ${this.mass.Zoffset2};
+this.mass.Zoffset3 = ${this.mass.Zoffset3};
+this.mass.Zoffset4 = ${this.mass.Zoffset4};
+    `; 
+}
+
+
+Potential.prototype.getScale = function()
+{
+    return 1.0;
+}
+
+Potential.prototype.program = function()
+{
+    /**
+    * Note, potential is in units of c^2, and the masses and distances defined in units of
+      the Schwarschild radius of some relevant mass scale (e.g. the total mass of the system).
+    */
+
+    return `
+    uniform vec3 position1;
+    uniform vec3 position2;
+    uniform vec3 position3;
+    uniform vec3 position4;
+
+    uniform float mass1;
+    uniform float mass2;
+    uniform float mass3;
+    uniform float mass4;
+
+    uniform float radius1;
+    uniform float radius2;
+    uniform float radius3;
+    uniform float radius4;
+
+    #define M_PI 3.141592653589
+
+    float POTENTIAL_point(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return -M/r;
+    }
+
+    float POTENTIAL_uniform_sphere(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        if (r<a)
+        {
+            float r2 = r*r; float a2 = a*a;
+            return -3.0*M*(a2-r2/3.0)/(2.0*a*a2);
+        }
+        return -M/r;
+    }
+
+    float POTENTIAL_isothermal_sphere(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        // NB, 'M' here is actually density at radius a
+        return 4.0*M_PI*M*a*a*log(r/a); 
+    }
+
+    float POTENTIAL_Plummer(in vec3 X, in vec3 P, float M, float a)
+    {
+        vec3 Xp = X - P;
+        float r2 = dot(Xp, Xp);
+        return -M/sqrt(r2 + a*a);
+    }
+
+    float POTENTIAL_NFW(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return -3.0*M/r*log(1.0 + r/a);
+    }
+
+    float POTENTIAL_Hernquist(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return -M/(r+a);
+    }
+
+    float POTENTIAL_Jaffe(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return M/a * log(r/(r+a));
+    }
+
+    float POTENTIAL(in vec3 X)
+    {
+        float phi1 = POTENTIAL_${this.mass.profile1}(X, position1, mass1, radius1);
+        float phi2 = POTENTIAL_${this.mass.profile2}(X, position2, mass2, radius2);
+        float phi3 = POTENTIAL_${this.mass.profile3}(X, position3, mass3, radius3);
+        float phi4 = POTENTIAL_${this.mass.profile4}(X, position4, mass4, radius4);
+        return phi1 + phi2 + phi3 + phi4;
+    }
+    `;
+}
+
+Potential.prototype.syncProgram = function(gravy, program) 
+{ 
+    program.uniform3Fv("position1", [this.mass.axisoffset1, this.mass.Yoffset1, this.mass.Zoffset1]);
+    program.uniform3Fv("position2", [this.mass.axisoffset2, this.mass.Yoffset2, this.mass.Zoffset2]);
+    program.uniform3Fv("position3", [this.mass.axisoffset3, this.mass.Yoffset3, this.mass.Zoffset3]);
+    program.uniform3Fv("position4", [this.mass.axisoffset4, this.mass.Yoffset4, this.mass.Zoffset4]);
+    program.uniformF("mass1", this.mass.mass1); 
+    program.uniformF("mass2", this.mass.mass2);
+    program.uniformF("mass3", this.mass.mass3); 
+    program.uniformF("mass4", this.mass.mass4); 
+    program.uniformF("radius1", this.mass.radius1);
+    program.uniformF("radius2", this.mass.radius2); 
+    program.uniformF("radius3", this.mass.radius3);
+    program.uniformF("radius4", this.mass.radius4);
+}
+
+Potential.prototype.getName = function() { return 'A four mass system'; }
+Potential.prototype.getURL = function() { return "https://github.com/portsmouth/snelly/blob/master/exampleScenes/helloWorld.html"; }
+
+Potential.prototype.initGui = function(gui) 
+{ 
+    this.typeItem1 = gui.getUserFolder().add(this.mass, 'profile1', this.mass.profiles);
+    this.typeItem2 = gui.getUserFolder().add(this.mass, 'profile2', this.mass.profiles);
+    this.typeItem3 = gui.getUserFolder().add(this.mass, 'profile3', this.mass.profiles);
+    this.typeItem4 = gui.getUserFolder().add(this.mass, 'profile4', this.mass.profiles);
+    this.typeItem1.onChange( function(value) { gravy.reset(); } );
+    this.typeItem2.onChange( function(value) { gravy.reset(); } );
+    this.typeItem3.onChange( function(value) { gravy.reset(); } );
+    this.typeItem4.onChange( function(value) { gravy.reset(); } );
+    gui.addSlider(this.mass, {name: 'mass1', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'mass2', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'mass3', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'mass4', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'radius1', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'radius2', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'radius3', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'radius4', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'Yoffset1', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'Yoffset2', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'Yoffset3', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'Yoffset4', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'Zoffset1', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'Zoffset2', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'Zoffset3', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'Zoffset4', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'axisoffset1', min: -10.0, max: 10.0}); 
+    gui.addSlider(this.mass, {name: 'axisoffset2', min: -10.0, max: 10.0});
+    gui.addSlider(this.mass, {name: 'axisoffset3', min: -10.0, max: 10.0}); 
+    gui.addSlider(this.mass, {name: 'axisoffset4', min: -10.0, max: 10.0});
+}
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+function onLoad() { gravy = new Gravy(new Potential()); animateLoop(); }
+function animateLoop() { gravy.render(); window.requestAnimationFrame(animateLoop); }
+</script>
+
+</body>

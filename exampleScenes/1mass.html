@@ -1,0 +1,176 @@
+   
+<body onload="onLoad();">
+
+<script src="../js/compiled/gravy.min.js"></script>
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*               gravitational potential definition                  */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script>
+
+function Potential() {}
+Potential.prototype.init = function(gravy)
+{
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let raytracer  = gravy.getRaytracer();
+    let camera    = gravy.getCamera();
+    let controls  = gravy.getControls();
+        
+    // Mass distribution parameters
+    this.mass = {};
+    this.mass.mass = 1;
+    this.mass.profiles = ['point', 'uniform_sphere', 'isothermal_sphere', 'Plummer', 'NFW', 'Hernquist', 'Jaffe'];
+    this.mass.profile = 'Plummer';
+    this.mass.radius = 1.6349541930937281;
+    this.mass.perpoffset = 0;
+        
+    gravy.showGUI(true);
+
+    /** Camera settings **/
+    gravy.fov = undefined;
+    camera.up.set(0, 1, 0);
+    camera.position.set(-17.285826988238288, 6.6108908219705285, 16.123212867091922);
+    controls.target.set(-0.7202401301707231, -0.9929691039930756, -0.9023969307484403);
+
+    /** Raytracer settings **/
+    raytracer.raySize = 200;
+    raytracer.maxNumSteps = 256;
+    raytracer.marchDistance = 40;
+    raytracer.exposure = 3.9816772374911906;
+    raytracer.gamma = 2.2;
+    raytracer.sourceDist = 12.4031007751938;
+    raytracer.sourceRadius = 0;
+    raytracer.sourceBeamAngle = 87.27272727272728;
+    raytracer.timeScale = 11.27554615926709;
+    raytracer.timePeriodSecs = 2.255109231853418;
+    raytracer.colorA = [1, 1, 1];
+    raytracer.colorB = [1, 1, 1];
+
+    /******* copy-pasted console output on 'O', end *******/
+    
+}
+
+Potential.prototype.initGenerator = function()
+{
+    return `
+// Mass distribution parameters
+this.mass = {};
+this.mass.mass = ${this.mass.mass};
+this.mass.profiles = ['point', 'uniform_sphere', 'isothermal_sphere', 'Plummer', 'NFW', Hernquist', 'Jaffe'];
+this.mass.profile = '${this.mass.profile}';
+this.mass.radius = ${this.mass.radius};
+this.mass.perpoffset = ${this.mass.perpoffset};
+    `; 
+}
+
+
+Potential.prototype.getScale = function()
+{
+    return 1.0;
+}
+
+Potential.prototype.program = function()
+{
+    /**
+    * Note, potential is in units of c^2, and the masses and distances defined in units of
+      the Schwarschild radius of some relevant mass scale (e.g. the total mass of the system).
+    */
+
+    return `
+    uniform vec3 position;
+    uniform float mass;
+    uniform float radius;
+
+    #define M_PI 3.141592653589
+
+    float POTENTIAL_point(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return -M/r;
+    }
+
+    float POTENTIAL_uniform_sphere(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        if (r<a)
+        {
+            float r2 = r*r; float a2 = a*a;
+            return -3.0*M*(a2-r2/3.0)/(2.0*a*a2);
+        }
+        return -M/r;
+    }
+
+    float POTENTIAL_isothermal_sphere(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        // NB, 'M' here is actually density at radius a
+        return 4.0*M_PI*M*a*a*log(r/a); 
+    }
+
+    float POTENTIAL_Plummer(in vec3 X, in vec3 P, float M, float a)
+    {
+        vec3 Xp = X - P;
+        float r2 = dot(Xp, Xp);
+        return -M/sqrt(r2 + a*a);
+    }
+
+    float POTENTIAL_NFW(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return -3.0*M/r*log(1.0 + r/a);
+    }
+
+    float POTENTIAL_Hernquist(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return -M/(r+a);
+    }
+
+    float POTENTIAL_Jaffe(in vec3 X, in vec3 P, float M, float a)
+    {
+        float r = length(X - P);
+        return M/a * log(r/(r+a));
+    }
+
+    float POTENTIAL(in vec3 X)
+    {
+        return POTENTIAL_${this.mass.profile}(X, position, mass, radius);
+    }
+    `;
+}
+
+Potential.prototype.syncProgram = function(gravy, program) 
+{ 
+    let d = this.mass.perpoffset;
+    program.uniform3Fv("position", [0, d, 0]);
+    program.uniformF("mass", this.mass.mass); 
+    program.uniformF("radius", this.mass.radius); 
+}
+
+Potential.prototype.getName = function() { return 'A one mass system'; }
+Potential.prototype.getURL = function() { return "https://github.com/portsmouth/snelly/blob/master/exampleScenes/helloWorld.html"; }
+
+Potential.prototype.initGui = function(gui) 
+{ 
+    this.typeItem = gui.getUserFolder().add(this.mass, 'profile', this.mass.profiles);
+    this.typeItem.onChange( function(value) { gravy.reset(); } );
+    gui.addSlider(this.mass, {name: 'mass', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'radius', min: 0.0, max: 5.0});
+    gui.addSlider(this.mass, {name: 'perpoffset', min: -10.0, max: 10.0}); 
+}
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+function onLoad() { gravy = new Gravy(new Potential()); animateLoop(); }
+function animateLoop() { gravy.render(); window.requestAnimationFrame(animateLoop); }
+</script>
+
+</body>

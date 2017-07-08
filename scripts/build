@@ -55,6 +55,7 @@ print '\n******************\nbuild documentation via jsdoc2md ...'
 jsSources = [
 '../js/gravy.js', 
 '../js/raytracer.js', 
+'../js/potential.js', 
 '../js/gui.js', 
 '../js/gl.js'
 ]
