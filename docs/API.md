@@ -137,8 +137,7 @@ Interface to the raytracer.
 <a name="Potential+init"></a>
 
 ### potential.init(gravy)
-Optionally (but usually), provide this function to set potential and raycaster initial state.
-This is called only once during execution, on loading the HTML page (or on global reset via 'R' key).
+Optionally (but usually), provide this function to set potential and raycaster initial state.This is called only once during execution, on loading the HTML page (or on global reset via 'R' key).
 
 **Kind**: instance method of [<code>Potential</code>](#Potential)  
 
@@ -149,10 +148,7 @@ This is called only once during execution, on loading the HTML page (or on globa
 <a name="Potential+initGenerator"></a>
 
 ### potential.initGenerator()
-Optionally, provide this function which generates the init code to re-generate 
-the current UI parameter settings. This will be dumped to the console (along with 
-the rest of the UI state) on pressing key 'O', allowing the scene and renderer
-state to be tweaked in the UI then saved by copy-pasting code into the init function.
+Optionally, provide this function which generates the init code to re-generate the current UI parameter settings. This will be dumped to the console (along with the rest of the UI state) on pressing key 'O', allowing the scene and rendererstate to be tweaked in the UI then saved by copy-pasting code into the init function.
 
 **Kind**: instance method of [<code>Potential</code>](#Potential)  
 <a name="Potential+getName"></a>
@@ -170,12 +166,7 @@ Optional clickable URL (displayed in UI)
 <a name="Potential+program"></a>
 
 ### potential.program() ⇒ <code>String</code>
-Returns a chunk of GLSL code defining the 3D gravitational potential in which the light propagates.
-Light is deflected according to the local gradient of the potential.
-This function is mandatory! The code *must* define the function:
-```glsl
-     float POTENTIAL(vec3 X);
-```
+Returns a chunk of GLSL code defining the 3D gravitational potential in which the light propagates.Light is deflected according to the local gradient of the potential.This function is mandatory! The code *must* define the function:```glsl     float POTENTIAL(vec3 X);```
 
 **Kind**: instance method of [<code>Potential</code>](#Potential)  
 <a name="Potential+initGui"></a>
@@ -205,17 +196,13 @@ Optional. Called whenever the UI is changed,
 <a name="Potential+getScale"></a>
 
 ### potential.getScale() ⇒ <code>number</code>
-Optional. Gives the raytracer some indication of the (rough) length scale, 
-so it can set tolerances appropriately (e.g. the epsilon for gradient computation is 1.0e-4 of this scale).
-Defaults to 1.0.
+Optional. Gives the raytracer some indication of the (rough) length scale, so it can set tolerances appropriately (e.g. the epsilon for gradient computation is 1.0e-4 of this scale).Defaults to 1.0.
 
 **Kind**: instance method of [<code>Potential</code>](#Potential)  
 <a name="GLU"></a>
 
 ## GLU : <code>object</code>
-Namespace for webGL utility wrappers.
-Functions for loading shader uniform variables are exposed to the user
-for convenience.
+Namespace for webGL utility wrappers.Functions for loading shader uniform variables are exposed to the userfor convenience.
 
 **Kind**: global namespace  
 
@@ -296,8 +283,7 @@ Provide a vec2 uniform (via uniform2f) to the currently bound shader
 <a name="GLU.this.Shader.uniform1Fv"></a>
 
 #### this.Shader.uniform1Fv(name, fvec)
-Provide an array of floats (via uniform1Fv) to the currently bound shader
-  i.e. the shader declares e.g. `uniform float values[19];`
+Provide an array of floats (via uniform1Fv) to the currently bound shader  i.e. the shader declares e.g. `uniform float values[19];`
 
 **Kind**: static method of [<code>this.Shader</code>](#GLU.this.Shader)  
 
@@ -309,8 +295,7 @@ Provide an array of floats (via uniform1Fv) to the currently bound shader
 <a name="GLU.this.Shader.uniform2Fv"></a>
 
 #### this.Shader.uniform2Fv(name, fvec2)
-Provide an array of vec2 (via uniform2fv) to the currently bound shader
-  i.e. the shader declares e.g. `uniform vec2 vectors[19];`
+Provide an array of vec2 (via uniform2fv) to the currently bound shader  i.e. the shader declares e.g. `uniform vec2 vectors[19];`
 
 **Kind**: static method of [<code>this.Shader</code>](#GLU.this.Shader)  
 
@@ -336,8 +321,7 @@ Provide a vec3 uniform (via uniform3f) to the currently bound shader
 <a name="GLU.this.Shader.uniform3Fv"></a>
 
 #### this.Shader.uniform3Fv(name, fvec3)
-Provide an array of vec3 (via uniform3fv) to the currently bound shader
-  i.e. the shader declares e.g. `uniform vec3 vectors[19];`
+Provide an array of vec3 (via uniform3fv) to the currently bound shader  i.e. the shader declares e.g. `uniform vec3 vectors[19];`
 
 **Kind**: static method of [<code>this.Shader</code>](#GLU.this.Shader)  
 
@@ -364,8 +348,7 @@ Provide a vec4 uniform (via uniform4F) to the currently bound shader
 <a name="GLU.this.Shader.uniform4Fv"></a>
 
 #### this.Shader.uniform4Fv(name, fvec4)
-Provide an array of vec4 (via uniform4fv) to the currently bound shader
-  i.e. the shader declares e.g. `uniform vec4 vectors[19];`
+Provide an array of vec4 (via uniform4fv) to the currently bound shader  i.e. the shader declares e.g. `uniform vec4 vectors[19];`
 
 **Kind**: static method of [<code>this.Shader</code>](#GLU.this.Shader)  
 
@@ -377,8 +360,7 @@ Provide an array of vec4 (via uniform4fv) to the currently bound shader
 <a name="GLU.this.Shader.uniformMatrix4fv"></a>
 
 #### this.Shader.uniformMatrix4fv(name, matrixArray16)
-Provide a matrix (via uniformMatrix4fv) to the currently bound shader
- i.e. the shader declares e.g. `uniform mat4 matrix;`
+Provide a matrix (via uniformMatrix4fv) to the currently bound shader i.e. the shader declares e.g. `uniform mat4 matrix;`
 
 **Kind**: static method of [<code>this.Shader</code>](#GLU.this.Shader)  
 
