@@ -1,4 +1,4 @@
-# Gravy
+# Gravy: A webGL simulation of gravitational lensing in three dimensions
 
 A webGL visualization of gravitationally lensed light paths in three dimensions. Click below for live demos, and author your own via the API.
 
