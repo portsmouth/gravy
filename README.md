@@ -1,6 +1,6 @@
 # Gravy: a webGL simulation of gravitational lensing
 
-A webGL visualization of gravitationally lensed light paths in three dimensions. Click below for live demos, and author your own via the API.
+Click below for live demos, and author your own via the API.
 
 <a href="https://cdn.rawgit.com/portsmouth/gravy/v1.0.2/exampleScenes/pointmass.html"><img src="./docs/screenshots/pointmass_thumb.png" width="440"/></a><a href="https://cdn.rawgit.com/portsmouth/gravy/v1.0.2/exampleScenes/1mass.html"><img src="./docs/screenshots/1mass_thumb.png" width="440"/></a>
 <a href="https://cdn.rawgit.com/portsmouth/gravy/v1.0.2/exampleScenes/2mass.html"><img src="./docs/screenshots/2mass_thumb.png" width="440"/></a><a href="https://cdn.rawgit.com/portsmouth/gravy/v1.0.2/exampleScenes/4mass.html"><img src="./docs/screenshots/4mass_thumb.png" width="440"/></a>
