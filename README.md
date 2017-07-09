@@ -7,15 +7,13 @@ A webGL visualization of gravitationally lensed light paths in three dimensions.
 <a href="https://cdn.rawgit.com/portsmouth/gravy/v1.0.2/exampleScenes/noise.html"><img src="./docs/screenshots/noise_thumb.png" width="440"/></a><a href="https://cdn.rawgit.com/portsmouth/gravy/v1.0.2/exampleScenes/disk.html"><img src="./docs/screenshots/disk_thumb.png" width="440"/></a>
 
 UI controls:
- - left mouse to rotate, alt-mouse to pan
- - AWSD to fly
+ - left-click mouse to rotate, right-click mouse to pan
  - F to frame camera on initial position and orientation
  - P to capture a screenshot of the current render in a new browser window
  - R to reset to initial state
  - O to serialize scene code to the JavaScript console
  - H to hide/show the sidebar UI
  - F11 to enter/exit fullscreen mode
-
 
 
 
