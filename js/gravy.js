@@ -78,7 +78,7 @@ var Gravy = function(potentialObj)
 */
 Gravy.prototype.getVersion = function()
 {
-	return [1, 0, 0];
+	return [1, 0, 1];
 }
 
 Gravy.prototype.handleEvent = function(event)
