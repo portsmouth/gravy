@@ -28,12 +28,11 @@ void main()
 {
 	// Read normalized fluence and time delay (integrated along primary rays)
 	vec4 image = float(invNumRays) * texture(Fluence, vTexCoord);
-
 	vec3 fluence = image.rgb;
 
-	// @todo: need to compute the average of only the ray *times*
-	//        which cross the pixel. (Not normalized to the global count).
-	//        Probably need a buffer which blends in 1 per ray pixel.
+	// image.w contains the summed times for all rays which 
+	// cross the pixel, so we need to divide by the total fluence of the pixel
+	// to get the average delay of all rays crossing the pixel.
 	float time = image.w / fluence.r;
 
 	// Apply coloring to indicate time delay
