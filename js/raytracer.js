@@ -66,11 +66,11 @@ RayState.prototype.detach = function(fbo)
 * @property {number} [marchDistance=100.0]      - the total distance travelled by each ray
 * @property {number} [sourceDist=10.0]          - distance of light source (along positive x axis)
 * @property {number} [sourceRadius=0.001]       - radius of light source disk
-* @property {number} [sourceBeamAngle=2.2]      - opening angle of light source beam (degrees)
-* @property {number} [exposure=4.5]             - image exposure, on a log scale
+* @property {number} [sourceBeamAngle=135.0]    - opening angle of light source beam (degrees)
+* @property {number} [exposure=3.0]             - image exposure, on a log scale
 * @property {number} [gamma=2.2]                - image gamma correction
-* @property {number} [timeScale=2.2]            - delay timescale over which color cycles
-* @property {number} [timePeriodSecs=2.2]       - real time (in seconds) over which the color cycles
+* @property {number} [timeScale=1.0]            - delay timescale over which color cycles
+* @property {number} [timePeriodSecs=2.0]       - real time (in seconds) over which the color cycles
 * @property {number} [includeShapiroDelay=true] - whether to add the Shapiro term to the time delay
 * @property {Array}  colorA                     - color to cycle to on even phase of the time delay
 * @property {Array}  colorB                     - color to cycle to on odd phase of the time delay
@@ -98,8 +98,8 @@ var Raytracer = function()
 	this.timePeriodSecs = 2.0;
 	this.time_ms = 0.0;
 	this.includeShapiroDelay = true;
-	this.colorA = [1.0, 0.0, 0.0];
-	this.colorB = [0.0, 0.0, 1.0];
+	this.colorA = [1.0, 1.0, 1.0];
+	this.colorB = [1.0, 1.0, 1.0];
 
 	// Create a quad VBO for rendering textures
 	this.quadVbo = this.createQuadVbo();
