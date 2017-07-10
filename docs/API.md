@@ -105,11 +105,11 @@ Programmatically show or hide the dat.GUI UI
 | marchDistance | <code>number</code> | <code>100.0</code> | the total distance travelled by each ray |
 | sourceDist | <code>number</code> | <code>10.0</code> | distance of light source (along positive x axis) |
 | sourceRadius | <code>number</code> | <code>0.001</code> | radius of light source disk |
-| sourceBeamAngle | <code>number</code> | <code>2.2</code> | opening angle of light source beam (degrees) |
-| exposure | <code>number</code> | <code>4.5</code> | image exposure, on a log scale |
+| sourceBeamAngle | <code>number</code> | <code>135.0</code> | opening angle of light source beam (degrees) |
+| exposure | <code>number</code> | <code>3.0</code> | image exposure, on a log scale |
 | gamma | <code>number</code> | <code>2.2</code> | image gamma correction |
-| timeScale | <code>number</code> | <code>2.2</code> | delay timescale over which color cycles |
-| timePeriodSecs | <code>number</code> | <code>2.2</code> | real time (in seconds) over which the color cycles |
+| timeScale | <code>number</code> | <code>1.0</code> | delay timescale over which color cycles |
+| timePeriodSecs | <code>number</code> | <code>2.0</code> | real time (in seconds) over which the color cycles |
 | includeShapiroDelay | <code>number</code> | <code>true</code> | whether to add the Shapiro term to the time delay |
 | colorA | <code>Array</code> |  | color to cycle to on even phase of the time delay |
 | colorB | <code>Array</code> |  | color to cycle to on odd phase of the time delay |
